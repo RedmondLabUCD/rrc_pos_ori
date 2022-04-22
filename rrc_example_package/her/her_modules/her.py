@@ -41,9 +41,7 @@ class her_sampler:
             transitions['g'][:,2] = temp_g[:,2]
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)
-        print(transitions['r'])
         transitions = {k: transitions[k].reshape(batch_size, *transitions[k].shape[1:]) for k in transitions.keys()}
-        
         temp_g_next = transitions['g_next'].copy()
         transitions['g_next'] = transitions['g'].copy()
         if self.trajectory_aware:

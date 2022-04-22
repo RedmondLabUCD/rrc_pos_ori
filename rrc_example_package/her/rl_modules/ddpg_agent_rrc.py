@@ -57,8 +57,6 @@ class ddpg_agent_rrc:
             if not os.path.exists(self.model_path):
                 os.mkdir(self.model_path)
         
-
-
     def learn(self):
         """
         train the network

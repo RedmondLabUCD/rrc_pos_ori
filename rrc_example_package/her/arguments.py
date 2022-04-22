@@ -50,7 +50,7 @@ def get_args():
     parser.add_argument('--action-type', type=str, default='torque', help='type of action to use')
     parser.add_argument('--obs-type', type=str, default='default', help='type of obs to use')
     parser.add_argument('--difficulty', type=int, default=3, help='goal difficulty level')
-    parser.add_argument('--increase-fps', type=int, default=0, help='whether to increase camera fps')
+    parser.add_argument('--increase-fps', type=int, default=1, help='whether to increase camera fps')
     parser.add_argument('--trajectory-aware', type=int, default=0, help='whether to make agent aware it is dealing with trajectories')
     parser.add_argument('--disable-arm3', type=int, default=0, help='whether to disable the robots 3rd arm')
     parser.add_argument('--reward-type', type=str, default='1', help='reward-type')

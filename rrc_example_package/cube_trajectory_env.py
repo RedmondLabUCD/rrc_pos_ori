@@ -292,7 +292,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
     def __init__(
         self,
         action_type: ActionType = ActionType.TORQUE,
-        difficulty=None, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=66,distance_threshold_z=0.015,
+        difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=66,distance_threshold_z=0.015,
         max_steps=50, visualization=False, goal_trajectory=None, steps_per_goal=50, xy_only=False,
         env_type='sim', obs_type='default', env_wrapped=False, increase_fps=False, disable_arm3=False,reward_type ='1',ori_start = 200,
     ):
@@ -406,10 +406,10 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             
             if self.env_type == 'sim' and self.visualization:
                 # update goal visualization
-                goal_position = task.get_active_goal(
+                goal = task.get_active_goal(
                     self.info["trajectory"], t
                 )
-                self.goal_marker.set_state(goal_position, (0, 0, 0, 1))
+                self.goal_marker.set_state(goal.position, goal.orientation)
                     
             self.info["time_index"] = t
             #TODO: No need to create obs until loop ended
@@ -453,7 +453,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         
         if self.goal_trajectory == None and difficulty != None:
             task.GOAL_DIFFICULTY = difficulty
-            
+        
         # hard-reset simulation
         del self.platform
         
@@ -470,24 +470,25 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 cube_scale=self.cube_scale
             )
             if self.increase_fps:
-                self.platform.camera_rate_fps = 26
+                self.platform.camera_rate_fps = 100
         elif self.env_type == 'real':
             self.platform = robot_fingers.TriFingerPlatformWithObjectFrontend()
         else:
             assert False, "Env type must be either sim or real"
-
+            
+        
         # if no goal is given, sample one randomly
         if self.goal is None:
             trajectory = task.sample_goal()
         else:
             trajectory = self.goal
-
+        
         # visualize the goal
         if self.visualization and self.env_type == 'sim':
             self.goal_marker = trifinger_simulation.visual_objects.CubeMarker(
                 width=task.move_cube._CUBE_WIDTH,
-                position=trajectory[0][1],
-                orientation=(0, 0, 0, 1),
+                position=trajectory[0][1].position,
+                orientation=trajectory[0][1].orientation,
                 pybullet_client_id=self.platform.simfinger._pybullet_client_id,
             )
 
@@ -666,6 +667,35 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 rwd -= (od > self.orientation_threshold).astype(np.float32)
             return rwd
         elif reward_type == "4":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            if epoch >= self.ori_start:
+                od1 = np.linalg.norm(achieved_goal[...,3:4] - desired_goal[...,3:4],ord=1, axis=-1)
+                rwd -= (od1 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
+                od2 = np.linalg.norm(achieved_goal[...,4:5] - desired_goal[...,4:5], ord=1,axis=-1)
+                rwd -= (od2 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
+                od3 = np.linalg.norm(achieved_goal[...,5:6] - desired_goal[...,5:6],ord=1, axis=-1)
+                rwd -= (od3 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
+            return rwd
+        elif reward_type == "5":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            if epoch >= self.ori_start:
+                od1_2 = np.linalg.norm(achieved_goal[...,3:5] - desired_goal[...,3:5],ord=1, axis=-1)
+                rwd -= (od1_2 > self.orientation_threshold * (2 / 3)).astype(np.float32) # 2 directions
+                od3 = np.linalg.norm(achieved_goal[...,5:6] - desired_goal[...,5:6],ord=1, axis=-1)
+                rwd -= (od3 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
+            return rwd
+        elif reward_type == "6":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            if epoch >= self.ori_start:
+                od = np.linalg.norm(achieved_goal[...,3:] - desired_goal[...,3:],ord=1, axis=-1)
+                rwd -= (od > self.orientation_threshold).astype(np.float32)
+            return rwd
+        
+        
+        elif reward_type == "7":
             d_xy = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d_xy > self.distance_threshold * 0.8).astype(np.float32)
             d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
@@ -678,7 +708,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 od3 = np.linalg.norm(achieved_goal[...,5:6] - desired_goal[...,5:6],ord=1, axis=-1)
                 rwd -= (od3 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
             return rwd
-        elif reward_type == "5":
+        elif reward_type == "8":
             d_xy = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d_xy > self.distance_threshold * 0.8).astype(np.float32)
             d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
@@ -689,7 +719,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 od3 = np.linalg.norm(achieved_goal[...,5:6] - desired_goal[...,5:6],ord=1, axis=-1)
                 rwd -= (od3 > self.orientation_threshold / 3).astype(np.float32) # 1 directions
             return rwd
-        elif reward_type == "6":
+        elif reward_type == "9":
             d_xy = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d_xy > self.distance_threshold * 0.8).astype(np.float32)
             d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
