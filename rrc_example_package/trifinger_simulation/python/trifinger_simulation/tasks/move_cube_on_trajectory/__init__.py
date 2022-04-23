@@ -104,7 +104,7 @@ def sample_goal() -> Trajectory:
         goal = move_cube.sample_goal(GOAL_DIFFICULTY)
         trajectory.append((t, goal))
         t += GOAL_DURATION
-
+        
     return trajectory
 
 

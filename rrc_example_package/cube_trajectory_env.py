@@ -115,8 +115,8 @@ class BaseCubeTrajectoryEnv(gym.GoalEnv):
                     high=np.array(1),
                 ),
                 "pos_and_ori": gym.spaces.Box(
-                low= np.array([  -0.3,   -0.3,   0.,    0.,     0.,     0.], dtype=np.float32),
-                high= np.array([  0.3,    0.3,   0.3,   360.,   360.,   360.], dtype=np.float32)
+                low= np.array([  -0.3,   -0.3,   0.,   -180.,  -180.,  -180.], dtype=np.float32),
+                high= np.array([  0.3,    0.3,   0.3,   180.,   180.,   180.], dtype=np.float32)
             ),
             }
         )
@@ -159,8 +159,8 @@ class BaseCubeTrajectoryEnv(gym.GoalEnv):
                     }
                 ),
                 "action": self.action_space,
-                "desired_goal": object_state_space["position"],
-                "achieved_goal": object_state_space["position"],
+                "desired_goal": object_state_space["pos_and_ori"],
+                "achieved_goal": object_state_space["pos_and_ori"],
             }
         )
 
@@ -341,7 +341,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             self.z_pos = 29
         else:
             self.z_pos = 32
-            
+
         if self.sparse_rewards:
             self.compute_reward = self.compute_sparse_reward
         else:
