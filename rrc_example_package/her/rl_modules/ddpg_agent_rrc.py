@@ -363,7 +363,7 @@ class ddpg_agent_rrc:
         total_success_rate = np.array(total_success_rate)
         local_success_rate = np.mean(total_success_rate[:, -1])
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        self.rrc = MPI.COMM_WORLD.allreduce(np.sum(rrc), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
+        self.rrc = MPI.COMM_WORLD.allreduce(np.mean(rrc), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.z = MPI.COMM_WORLD.allreduce(np.mean(r_z), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.ori_pos = MPI.COMM_WORLD.allreduce(np.mean(ori_pos), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.xy = MPI.COMM_WORLD.allreduce(10*np.mean(xy), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
