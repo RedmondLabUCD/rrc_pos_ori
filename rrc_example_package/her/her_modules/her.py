@@ -1,7 +1,7 @@
 import numpy as np
 
 class her_sampler:
-    def __init__(self, replay_strategy, replay_k, reward_func=None, steps_per_goal=None, xy_only=False, trajectory_aware=False,args=None):
+    def __init__(self, replay_strategy, replay_k, reward_func=None, steps_per_goal=None, trajectory_aware=False,args=None):
         self.replay_strategy = replay_strategy
         self.replay_k = replay_k
         if self.replay_strategy == 'future':
@@ -10,7 +10,6 @@ class her_sampler:
             self.future_p = 0
         self.reward_func = reward_func
         self.steps_per_goal = steps_per_goal
-        self.xy_only = xy_only
         self.trajectory_aware = trajectory_aware
         self.args = args
     

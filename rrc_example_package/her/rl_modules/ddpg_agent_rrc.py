@@ -8,6 +8,8 @@ from rrc_example_package.her.rl_modules.replay_buffer import replay_buffer
 from rrc_example_package.her.rl_modules.models import actor, critic
 from rrc_example_package.her.mpi_utils.normalizer import normalizer
 from rrc_example_package.her.her_modules.her import her_sampler
+import time
+import pybullet as p
 
 
 """
@@ -42,7 +44,7 @@ class ddpg_agent_rrc:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
-        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, self.env.steps_per_goal, self.args.xy_only, self.args.trajectory_aware,args = self.args)
+        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, self.env.steps_per_goal, self.args.trajectory_aware,args = self.args)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         # create the normalizer
@@ -66,7 +68,7 @@ class ddpg_agent_rrc:
             print('\n[{}] Beginning RRC HER training, difficulty = {}\n'.format(datetime.now(), self.args.difficulty))
         # start to collect samples
         for epoch in range(self.args.n_epochs):
-                self.epoch = epoch+200
+                self.epoch = epoch
                 actor_loss, critic_loss, explore_success,explore_success_pos,explore_success_ori = [],[],[],[],[]
                 for _ in range(self.args.n_cycles):
                     mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
@@ -75,6 +77,7 @@ class ddpg_agent_rrc:
                         ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
                         # reset the environment
                         observation = self.env.reset(difficulty=self.args.difficulty, noisy=self.args.noisy_resets, noise_level=self.args.noise_level)
+                        # p.resetDebugVisualizerCamera(cameraDistance=0.45, cameraYaw=135, cameraPitch=-45.0, cameraTargetPosition=[0, 0.0, 0.0])
                         obs = observation['observation']
                         ag = observation['achieved_goal']
                         g = observation['desired_goal']
@@ -211,9 +214,12 @@ class ddpg_agent_rrc:
     # update the network
     def _update_network(self):
         # sample the episodes
+
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
+
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
+
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
@@ -229,7 +235,7 @@ class ddpg_agent_rrc:
         inputs_norm_tensor = torch.tensor(inputs_norm, dtype=torch.float32)
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
-        r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) 
+        r_tensor = torch.tensor(transitions['r'], dtype=torch.float32)
         if self.args.cuda:
             inputs_norm_tensor = inputs_norm_tensor.cuda()
             inputs_next_norm_tensor = inputs_next_norm_tensor.cuda()
@@ -246,7 +252,7 @@ class ddpg_agent_rrc:
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
-            if self.args.z_reward == 1:
+            if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
                 clip_return += 50 # TODO: calculate proper value!!!
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
