@@ -62,7 +62,6 @@ class ddpg_agent_rrc:
     def learn(self):
         """
         train the network
-
         """
         if MPI.COMM_WORLD.Get_rank() == 0:
             print('\n[{}] Beginning RRC HER training, difficulty = {}\n'.format(datetime.now(), self.args.difficulty))
@@ -293,7 +292,6 @@ class ddpg_agent_rrc:
         total_pos_success_rate = []
         total_ori_success_rate = []
         r_z, xy, rrc = [], [], []
-        ori_pos, xy, rrc = [], [], []
         mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
         for n in range(self.args.n_test_rollouts):
             # reset the rollouts
@@ -363,9 +361,8 @@ class ddpg_agent_rrc:
         total_success_rate = np.array(total_success_rate)
         local_success_rate = np.mean(total_success_rate[:, -1])
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        self.rrc = MPI.COMM_WORLD.allreduce(np.sum(rrc), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
+        self.rrc = MPI.COMM_WORLD.allreduce(np.mean(rrc), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.z = MPI.COMM_WORLD.allreduce(np.mean(r_z), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
-        self.ori_pos = MPI.COMM_WORLD.allreduce(np.mean(ori_pos), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.xy = MPI.COMM_WORLD.allreduce(10*np.mean(xy), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         return global_success_rate / MPI.COMM_WORLD.Get_size(), global_pos_success_rate / MPI.COMM_WORLD.Get_size(),global_ori_success_rate / MPI.COMM_WORLD.Get_size()
 
