@@ -39,9 +39,9 @@ def main():
         raise NotImplementedError("Only torque actions are currently supported")
         
     # initialise environment
-    env = cube_trajectory_env.SimtoRealEnv(visualization=False,
+    env = cube_trajectory_env.SimtoRealEnv(visualization=0,
                                            max_steps=args.ep_len,
-                                           xy_only=(args.xy_only==1),
+                                           # xy_only=(args.xy_only==1),
                                            steps_per_goal=args.steps_per_goal,
                                            step_size=args.step_size,
                                            env_type='sim',
@@ -58,12 +58,6 @@ def main():
                                            ori_start = args.ori_start,
                                            )
     # wrap in domain randomisation environment
-    if args.domain_randomization == 1:
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print('....with Domain Randomization')
-        env = RandomizedEnvWrapper(env, flatten_obs=True)
-    
-
     # set random seeds for reproduce
     env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
