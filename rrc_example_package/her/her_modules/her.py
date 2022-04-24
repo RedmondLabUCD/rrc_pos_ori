@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 class her_sampler:
     def __init__(self, replay_strategy, replay_k, reward_func=None, steps_per_goal=None, trajectory_aware=False,args=None):
@@ -34,10 +35,15 @@ class her_sampler:
         # replace goal with achieved goal
         future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
         temp_g = transitions['g'].copy()
+
         transitions['g'][her_indexes] = future_ag
+
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             # only replace x and y components of goal
             transitions['g'][:,2] = temp_g[:,2]
+        if epoch < self.args.ori_start:
+            transitions['g'][:,2:] = temp_g[:,2:]
+            
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)
         transitions = {k: transitions[k].reshape(batch_size, *transitions[k].shape[1:]) for k in transitions.keys()}
