@@ -339,6 +339,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=66,distance_threshold_z=0.015,
         max_steps=50, visualization=False, goal_trajectory=None, steps_per_goal=50, xy_only=False,
         env_type='sim', obs_type='default', env_wrapped=False, increase_fps=False, disable_arm3=False,reward_type ='1',ori_start = 200,
+        ori_reward_type = 'bonus',
     ):
         """Initialize.
 
@@ -380,6 +381,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         self.reward_type = reward_type
         self.difficulty = difficulty
         self.ori_start = ori_start
+        self.ori_reward_type = ori_reward_type
         
         self.cube_scale = 1
         
@@ -688,10 +690,16 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             return rwd
         
         elif reward_type == "3":
-            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
-            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-            rwd += (od > self.orientation_threshold).astype(np.float32)# 3 directions
+            if self.ori_reward_type == 'bonus':
+                d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+                rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+                od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+                rwd += (od > self.orientation_threshold).astype(np.float32)# 3 directions
+            elif self.ori_reward_type == 'punish':
+                d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+                rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+                od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+                rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
             return rwd
         
         elif reward_type == "ori_only_3":
