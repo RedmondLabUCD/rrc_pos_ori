@@ -200,6 +200,49 @@ class BaseCubeTrajectoryEnv(gym.GoalEnv):
         )
         
         return -move_cube.evaluate_state(active_goal, achieved_goal, self.difficulty)
+    
+    def compute_pos_reward_rrc(
+        self,
+        achieved_goal,
+        desired_goal,
+        info: dict,
+    ) -> float:
+        """Compute the reward for the given achieved and desired goal.
+
+        Args:
+            achieved_goal: Current position of the object.
+            desired_goal: Goal position of the current trajectory step.
+            info: An info dictionary containing a field "time_index" which
+                contains the time index of the achieved_goal.
+
+        Returns:
+            The reward that corresponds to the provided achieved goal w.r.t. to
+            the desired goal. Note that the following should always hold true::
+
+                ob, reward, done, info = env.step()
+                assert reward == env.compute_reward(
+                    ob['achieved_goal'],
+                    ob['desired_goal'],
+                    info,
+                )
+        """
+        # This is just some sanity check to verify that the given desired_goal
+        # actually matches with the active goal in the trajectory.
+        active_goal = task.get_active_goal(
+                self.info["trajectory"], self.info["time_index"])
+        
+        assert np.all(active_goal.position == desired_goal.position) and np.all(active_goal.orientation == desired_goal.orientation), "{}: {} != {}".format(
+            info["time_index"], active_goal, desired_goal
+        )
+        
+        return -move_cube.evaluate_state(active_goal, achieved_goal, 3)
+    
+    def compute_ori_reward_rrc(
+        self,
+        pos_reward,
+        overall_reward,
+    ) -> float:
+        return (2*overall_reward) - pos_reward
 
     def step(self, action):
         """Run one timestep of the environment's dynamics.
@@ -420,11 +463,13 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 self.info["time_index"], action, obs_type='full'
             )
             
-            self.info["rrc_reward"] += self.compute_reward_rrc(
-                observation["achieved_goal"],
-                observation["desired_goal"],
-                self.info,
-            )
+            rrc_rwd = self.compute_reward_rrc(observation["achieved_goal"],observation["desired_goal"],self.info)
+            rrc_rwd_pos = self.compute_pos_reward_rrc(observation["achieved_goal"],observation["desired_goal"],self.info)
+            rrc_rwd_ori = self.compute_ori_reward_rrc(pos_reward=rrc_rwd_pos, overall_reward=rrc_rwd)
+            
+            self.info["rrc_reward"] += rrc_rwd
+            self.info["rrc_reward_pos"] += rrc_rwd_pos
+            self.info["rrc_reward_ori"] += rrc_rwd_ori
             
             if initial:
                 observation = self._update_obj_vel(observation, initial)
@@ -495,7 +540,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 pybullet_client_id=self.platform.simfinger._pybullet_client_id,
             )
 
-        self.info = {"time_index": -1, "trajectory": trajectory, "rrc_reward": 0, "xy_fail": False}
+        self.info = {"time_index": -1, "trajectory": trajectory, "rrc_reward": 0, "rrc_reward_pos":0,"rrc_reward_ori":0,"xy_fail": False}
         
         # need to already do one step to get initial observation
         observation, _, _, _ = self.step(self._initial_action, initial=True)
@@ -646,9 +691,25 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
             od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-            rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
+            rwd += (od > self.orientation_threshold).astype(np.float32)# 3 directions
             return rwd
         
+        elif reward_type == "ori_only_3":
+            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+            rwd = -(od < self.orientation_threshold).astype(np.float32)# 3 directions
+            return rwd
+        
+        elif reward_type == "ori_only_1":
+            od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
+            rwd = -(od3 < self.orientation_threshold_1).astype(np.float32) # 1 direction
+            return rwd
+        
+        # elif reward_type == "3":
+        #     d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+        #     rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+        #     od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+        #     rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
+        #     return rwd
         
         # elif reward_type == "1":
         #     d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)

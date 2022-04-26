@@ -54,3 +54,6 @@ for _ in range(10000):
     if radnum >= 0.6:
         q += 1
 print(q)
+#%%
+import math
+print(math.radians(90))

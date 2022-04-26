@@ -8,8 +8,10 @@ from rrc_example_package.her.rl_modules.replay_buffer import replay_buffer
 from rrc_example_package.her.rl_modules.models import actor, critic
 from rrc_example_package.her.mpi_utils.normalizer import normalizer
 from rrc_example_package.her.her_modules.her import her_sampler
+from rrc_example_package.utils import CsvCreator
 import time
 import pybullet as p
+from copy import copy
 
 
 """
@@ -52,6 +54,7 @@ class ddpg_agent_rrc:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # path to save the model
         self.model_path = os.path.join(self.args.save_dir, self.args.exp_dir)
+        self.csv = CsvCreator()
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -133,9 +136,11 @@ class ddpg_agent_rrc:
                 success_rate,pos_success_rate,ori_success_rate = self._eval_agent()
                 self.save_model(epoch)
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    print('[{}] epoch: {} eval_rate: {:.3f} eval_pos_rate: {:.3f} eval_ori_rate: {:.3f} explore_rate: {:.3f} explore_pos_rate: {:.3f} explore_ori_rate: {:.3f} a_loss: {:.3f} q_loss: {:.3f} rrc: {:.0f} z_mean: {:.3f} xy: {:.3f}'\
-                          .format(datetime.now(), epoch, success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(actor_loss), np.mean(critic_loss), self.rrc, self.z, self.xy))
-                
+                    print('[{}] epoch: {} eval_rate: {:.3f} eval_pos_rate: {:.3f} eval_ori_rate: {:.3f} explore_rate: {:.3f} explore_pos_rate: {:.3f} explore_ori_rate: {:.3f} a_loss: {:.3f} q_loss: {:.3f} rrc: {:.0f} rrc_pos: {:.0f} rrc_ori: {:.0f} z_mean: {:.3f} xy: {:.3f}'\
+                          .format(datetime.now(), epoch, success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy))
+                    log = [epoch,success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy]
+                    self.csv.update(log=log,path=self.model_path+'/log.csv')
+
     def save_model(self, epoch):
         if epoch % self.args.save_interval == 0 and MPI.COMM_WORLD.Get_rank() == 0:
             # Save actor critic
@@ -146,6 +151,9 @@ class ddpg_agent_rrc:
             # Save target nets
             torch.save([self.actor_target_network.state_dict(), self.critic_target_network.state_dict()], \
                         self.model_path + '/ac_targets.pt')
+            # Save the norm
+            self.o_norm.save(self.model_path + '/o_norm')
+            self.g_norm.save(self.model_path + '/g_norm')
         
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):
@@ -290,7 +298,7 @@ class ddpg_agent_rrc:
         total_success_rate = []
         total_pos_success_rate = []
         total_ori_success_rate = []
-        r_z, xy, rrc = [], [], []
+        r_z, xy, rrc,rrc_pos,rrc_ori = [], [], [],[],[]
         mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
         for n in range(self.args.n_test_rollouts):
             # reset the rollouts
@@ -339,6 +347,8 @@ class ddpg_agent_rrc:
             total_ori_success_rate.append(ori_success_rate)
             total_success_rate.append(per_success_rate)
             rrc.append(info['rrc_reward'])
+            rrc_pos.append(info['rrc_reward_pos'])
+            rrc_ori.append(info['rrc_reward_ori'])
         # convert them into arrays
         mb_obs = np.array(mb_obs)
         mb_ag = np.array(mb_ag)
@@ -361,6 +371,8 @@ class ddpg_agent_rrc:
         local_success_rate = np.mean(total_success_rate[:, -1])
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
         self.rrc = MPI.COMM_WORLD.allreduce(np.mean(rrc), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
+        self.rrc_pos = MPI.COMM_WORLD.allreduce(np.mean(rrc_pos), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
+        self.rrc_ori = MPI.COMM_WORLD.allreduce(np.mean(rrc_ori), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.z = MPI.COMM_WORLD.allreduce(np.mean(r_z), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.xy = MPI.COMM_WORLD.allreduce(10*np.mean(xy), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         return global_success_rate / MPI.COMM_WORLD.Get_size(), global_pos_success_rate / MPI.COMM_WORLD.Get_size(),global_ori_success_rate / MPI.COMM_WORLD.Get_size()
