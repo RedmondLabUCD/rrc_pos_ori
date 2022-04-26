@@ -31,6 +31,9 @@ def main():
     args = get_args()
     args.domain_randomization = 0
     
+    if args.strategy == '4':
+        args.ori_start = 80
+    
     if MPI.COMM_WORLD.Get_rank() == 0: print('\n#########\nArgs for {}:\n{}\n'.format(args.exp_dir, args))
         
     if args.action_type == 'torque':
@@ -52,7 +55,7 @@ def main():
                                            disable_arm3=args.disable_arm3,
                                            distance_threshold=0.02,
                                            distance_threshold_z = 0.015,
-                                           orientation_threshold = 66,
+                                           orientation_threshold = 30,
                                            reward_type = args.reward_type,
                                            difficulty = args.difficulty,
                                            ori_start = args.ori_start,

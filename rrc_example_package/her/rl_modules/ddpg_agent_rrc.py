@@ -136,7 +136,6 @@ class ddpg_agent_rrc:
                     print('[{}] epoch: {} eval_rate: {:.3f} eval_pos_rate: {:.3f} eval_ori_rate: {:.3f} explore_rate: {:.3f} explore_pos_rate: {:.3f} explore_ori_rate: {:.3f} a_loss: {:.3f} q_loss: {:.3f} rrc: {:.0f} z_mean: {:.3f} xy: {:.3f}'\
                           .format(datetime.now(), epoch, success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(actor_loss), np.mean(critic_loss), self.rrc, self.z, self.xy))
                 
-                
     def save_model(self, epoch):
         if epoch % self.args.save_interval == 0 and MPI.COMM_WORLD.Get_rank() == 0:
             # Save actor critic

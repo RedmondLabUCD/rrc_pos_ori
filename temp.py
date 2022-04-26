@@ -42,3 +42,15 @@ import math
 print(np.cos(math.radians(22)))
 #%%
 print(np.cos(math.radians(66 * (3/3))))
+
+#%%
+import numpy as np
+print(np.random.uniform(0,1.0))
+#%%
+import numpy as np
+q = 0
+for _ in range(10000):
+    radnum = np.random.uniform(0,1.0)
+    if radnum >= 0.6:
+        q += 1
+print(q)

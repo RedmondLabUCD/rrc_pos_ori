@@ -642,34 +642,35 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             rwd -=  (od < self.orientation_threshold).astype(np.float32)
             return rwd
         
-        elif reward_type == "1":
-            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
-            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-            if epoch >= self.ori_start:
-                od1 = np.cos(np.linalg.norm(achieved_goal_ori[...,0:1] - desired_goal_ori[...,0:1],ord=1, axis=-1))
-                rwd -= (od1 < self.orientation_threshold_1).astype(np.float32) # 1 direction
-                od2 = np.cos(np.linalg.norm(achieved_goal_ori[...,1:2] - desired_goal_ori[...,1:2],ord=1, axis=-1))
-                rwd -= (od2 < self.orientation_threshold_1).astype(np.float32) # 1 direction
-                od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
-                rwd -= (od3 < self.orientation_threshold_1).astype(np.float32) # 1 direction
-            return rwd
-        
-        elif reward_type == "2":
-            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
-            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-            if epoch >= self.ori_start:
-                od1_2 = np.cos(np.linalg.norm(achieved_goal_ori[...,0:2] - desired_goal_ori[...,0:2],ord=1, axis=-1))
-                rwd -= (od1_2 < self.orientation_threshold_2).astype(np.float32) # 2 directions
-                od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
-                rwd -= (od3 < self.orientation_threshold_1).astype(np.float32) # 1 directions
-            return rwd
         elif reward_type == "3":
             d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-            if epoch >= self.ori_start:
-                od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-                rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
+            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+            rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
             return rwd
+        
+        
+        # elif reward_type == "1":
+        #     d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+        #     rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+        #     if epoch >= self.ori_start:
+        #         od1 = np.cos(np.linalg.norm(achieved_goal_ori[...,0:1] - desired_goal_ori[...,0:1],ord=1, axis=-1))
+        #         rwd -= (od1 < self.orientation_threshold_1).astype(np.float32) # 1 direction
+        #         od2 = np.cos(np.linalg.norm(achieved_goal_ori[...,1:2] - desired_goal_ori[...,1:2],ord=1, axis=-1))
+        #         rwd -= (od2 < self.orientation_threshold_1).astype(np.float32) # 1 direction
+        #         od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
+        #         rwd -= (od3 < self.orientation_threshold_1).astype(np.float32) # 1 direction
+        #     return rwd
+        
+        # elif reward_type == "2":
+        #     d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+        #     rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+        #     if epoch >= self.ori_start:
+        #         od1_2 = np.cos(np.linalg.norm(achieved_goal_ori[...,0:2] - desired_goal_ori[...,0:2],ord=1, axis=-1))
+        #         rwd -= (od1_2 < self.orientation_threshold_2).astype(np.float32) # 2 directions
+        #         od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
+        #         rwd -= (od3 < self.orientation_threshold_1).astype(np.float32) # 1 directions
+        #     return rwd
         
         # elif reward_type == "4":
         #     d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
