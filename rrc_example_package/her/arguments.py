@@ -51,7 +51,13 @@ def get_args():
     parser.add_argument('--increase-fps', type=int, default=1, help='whether to increase camera fps')
     parser.add_argument('--trajectory-aware', type=int, default=0, help='whether to make agent aware it is dealing with trajectories')
     parser.add_argument('--disable-arm3', type=int, default=0, help='whether to disable the robots 3rd arm')
+    
+    
+    
+    
+    #Orientation:
     parser.add_argument('--reward-type', type=str, default='3', help='reward-type')
+    parser.add_argument('--ori-reward-type', type=str, default='bonus', help='reward-type')
     parser.add_argument('--ori-start', type=int, default=80, help='ori-start')
     parser.add_argument('--strategy', type=str, default='1', help='ori-start')
     
