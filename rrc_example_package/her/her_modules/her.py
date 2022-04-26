@@ -39,11 +39,30 @@ class her_sampler:
         transitions['g'][her_indexes] = future_ag
 
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
-            # only replace x and y components of goal
             transitions['g'][:,2] = temp_g[:,2]
-        if epoch < self.args.ori_start:
-            transitions['g'][:,2:] = temp_g[:,2:]
+            # only replace x and y components of goal
             
+        if self.args.strategy == '1':
+            rad_num = np.random.uniform(0,1.0)
+            if rad_num < self.args.pos_possibility_st1:
+                transitions['g'][:,2:] = temp_g[:,2:]  # Replace back the orientation and only train the position
+            elif rad_num >= self.args.pos_possibility_st1:
+                transitions['g'][:,:2] = temp_g[:,:2] # Replace back the position and only train the orientation
+        if self.args.strategy == '2':
+            rad_num = np.random.uniform(0,1.0)
+            if rad_num < self.args.pos_possibility_st2:
+                transitions['g'][:,2:] = temp_g[:,2:] # Replace back the orientation and only train the position
+            elif rad_num >= self.args.pos_possibility_st2 and rad_num < self.args.ori_possibility_st2:
+                transitions['g'][:,:2] = temp_g[:,:2] # Replace back the position and only train the orientation
+            # else train all
+        if self.args.strategy == '3':
+            rad_num = np.random.uniform(0,1.0)
+            if rad_num >= (epoch / self.args.full_ori_epoch):
+                transitions['g'][:,2:] = temp_g[:,2:] # Replace back the orientation and only train the position
+        if self.args.strategy == '4':
+            if epoch < self.args.ori_start:
+                transitions['g'][:,2:] = temp_g[:,2:]
+
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)
         transitions = {k: transitions[k].reshape(batch_size, *transitions[k].shape[1:]) for k in transitions.keys()}
