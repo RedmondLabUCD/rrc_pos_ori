@@ -34,22 +34,24 @@ def main():
     if args.strategy == '4':
         args.ori_start = 80
     
-    if MPI.COMM_WORLD.Get_rank() == 0: print('\n#########\nArgs for {}:\n{}\n'.format(args.exp_dir, args))
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        print('domain-randomization: ',args.domain_randomization)
+        print('increaser_fps:        ',args.increase_fps)
+        print('reward-type:          ',args.reward_type)
+        print('ori-start:            ',args.ori_start)
+        print('strategy:             ',args.strategy)
+        print('pos-possibility_st1:  ',args.pos_possibility_st1)
+        print('pos-possibility_st2:  ',args.pos_possibility_st2)
+        print('ori-possibility_st2:  ',args.ori_possibility_st2)
+        print('full-ori-epoch:       ',args.full_ori_epoch)
+        
+        print('\n#########\nArgs for {}:\n{}\n'.format(args.exp_dir, args))
         
     if args.action_type == 'torque':
         action_type = ActionType.TORQUE
     else:
         raise NotImplementedError("Only torque actions are currently supported")
-        
-    print('domain-randomization: ',args.domain_randomization)
-    print('increaser_fps:        ',args.increase_fps)
-    print('reward-type:          ',args.reward_type)
-    print('ori-start:            ',args.ori_start)
-    print('strategy:             ',args.strategy)
-    print('pos-possibility_st1:  ',args.pos_possibility_st1)
-    print('pos-possibility_st2:  ',args.pos_possibility_st2)
-    print('ori-possibility_st2:  ',args.ori_possibility_st2)
-    print('full-ori-epoch:       ',args.full_ori_epoch)
+
     # initialise environment
     env = cube_trajectory_env.SimtoRealEnv(visualization=0,
                                            max_steps=args.ep_len,
@@ -63,7 +65,7 @@ def main():
                                            increase_fps=(args.increase_fps==1),
                                            disable_arm3=args.disable_arm3,
                                            distance_threshold=0.02,
-                                           distance_threshold_z = 0.015,
+                                           distance_threshold_z = 0.012,
                                            orientation_threshold = args.orientation_threshold,
                                            reward_type = args.reward_type,
                                            difficulty = args.difficulty,

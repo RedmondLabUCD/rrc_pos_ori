@@ -336,7 +336,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
     def __init__(
         self,
         action_type: ActionType = ActionType.TORQUE,
-        difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=22,distance_threshold_z=0.015,
+        difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=22,distance_threshold_z=0.012,
         max_steps=50, visualization=False, goal_trajectory=None, steps_per_goal=50, xy_only=False,
         env_type='sim', obs_type='default', env_wrapped=False, increase_fps=False, disable_arm3=False,reward_type ='1',ori_start = 200,
         ori_reward_type = 'bonus',
@@ -698,6 +698,8 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
 
         elif reward_type == "ori_only":
             rwd = -(orientation_error > self.orientation_threshold).astype(np.float32)
+            d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
+            rwd -= (d_z > self.distance_threshold_z).astype(np.float32)  # Z involved
             return rwd
         
     def compute_xy_fail(self, achieved_goal, desired_goal):
