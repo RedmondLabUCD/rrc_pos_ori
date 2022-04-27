@@ -336,7 +336,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
     def __init__(
         self,
         action_type: ActionType = ActionType.TORQUE,
-        difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=66,distance_threshold_z=0.015,
+        difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=22,distance_threshold_z=0.015,
         max_steps=50, visualization=False, goal_trajectory=None, steps_per_goal=50, xy_only=False,
         env_type='sim', obs_type='default', env_wrapped=False, increase_fps=False, disable_arm3=False,reward_type ='1',ori_start = 200,
         ori_reward_type = 'bonus',
@@ -374,9 +374,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         self.env_wrapped = env_wrapped
         self.increase_fps = increase_fps
         self.disable_arm3 = disable_arm3
-        self.orientation_threshold = np.cos(math.radians(orientation_threshold))
-        self.orientation_threshold_1 = np.cos(math.radians(orientation_threshold * (1/3)))
-        self.orientation_threshold_2 = np.cos(math.radians(orientation_threshold * (2/3)))
+        self.orientation_threshold = math.radians(orientation_threshold)
         self.distance_threshold_z = distance_threshold_z
         self.reward_type = reward_type
         self.difficulty = difficulty
@@ -671,46 +669,85 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
     def compute_sparse_reward(self, achieved_goal, desired_goal, reward_type,epoch=0):
         rotation_d = R.from_quat(desired_goal[...,3:])
         rotation_a = R.from_quat(achieved_goal[...,3:])
-        desired_goal_ori = rotation_d.as_euler('xyz', degrees=False)
-        achieved_goal_ori = rotation_a.as_euler('xyz', degrees=False)
+        error_rot = rotation_d.inv() * rotation_a
+        orientation_error = error_rot.magnitude()
 
         if reward_type == 'pos_success':
             d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
             return -(d > self.distance_threshold).astype(np.float32)
         
         elif reward_type == 'ori_success':
-            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-            return -(od < self.orientation_threshold).astype(np.float32)
+            return -(orientation_error > self.orientation_threshold).astype(np.float32)
         
         elif reward_type == 'success':
             d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
             rwd = -(d > self.distance_threshold).astype(np.float32)
-            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-            rwd -=  (od < self.orientation_threshold).astype(np.float32)
+            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
-        
+
         elif reward_type == "3":
             if self.ori_reward_type == 'bonus':
                 d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
                 rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-                od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-                rwd += (od > self.orientation_threshold).astype(np.float32)# 3 directions
+                rwd += (orientation_error < self.orientation_threshold).astype(np.float32)
             elif self.ori_reward_type == 'punish':
                 d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
                 rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-                od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-                rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
+                rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
+            return rwd
+
+        elif reward_type == "ori_only":
+            rwd = -(orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
         
-        elif reward_type == "ori_only_3":
-            od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
-            rwd = -(od < self.orientation_threshold).astype(np.float32)# 3 directions
-            return rwd
+    def compute_xy_fail(self, achieved_goal, desired_goal):
+        d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+        return d > 0.04
+    
+    # OLD VERSION
+    # def compute_sparse_reward(self, achieved_goal, desired_goal, reward_type,epoch=0):
+    #     rotation_d = R.from_quat(desired_goal[...,3:])
+    #     rotation_a = R.from_quat(achieved_goal[...,3:])
+    #     desired_goal_ori = rotation_d.as_euler('xyz', degrees=False)
+    #     achieved_goal_ori = rotation_a.as_euler('xyz', degrees=False)
+
+    #     if reward_type == 'pos_success':
+    #         d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+    #         return -(d > self.distance_threshold).astype(np.float32)
         
-        elif reward_type == "ori_only_1":
-            od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
-            rwd = -(od3 < self.orientation_threshold_1).astype(np.float32) # 1 direction
-            return rwd
+    #     elif reward_type == 'ori_success':
+    #         od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+    #         return -(od < self.orientation_threshold).astype(np.float32)
+        
+    #     elif reward_type == 'success':
+    #         d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+    #         rwd = -(d > self.distance_threshold).astype(np.float32)
+    #         od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+    #         rwd -=  (od < self.orientation_threshold).astype(np.float32)
+    #         return rwd
+        
+    #     elif reward_type == "3":
+    #         if self.ori_reward_type == 'bonus':
+    #             d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+    #             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+    #             od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+    #             rwd += (od > self.orientation_threshold).astype(np.float32)# 3 directions
+    #         elif self.ori_reward_type == 'punish':
+    #             d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+    #             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+    #             od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+    #             rwd -= (od < self.orientation_threshold).astype(np.float32)# 3 directions
+    #         return rwd
+        
+    #     elif reward_type == "ori_only_3":
+    #         od = np.cos(np.linalg.norm(achieved_goal_ori - desired_goal_ori,ord=1, axis=-1))
+    #         rwd = -(od < self.orientation_threshold).astype(np.float32)# 3 directions
+    #         return rwd
+        
+    #     elif reward_type == "ori_only_1":
+    #         od3 = np.cos(np.linalg.norm(achieved_goal_ori[...,2:3] - desired_goal_ori[...,2:3],ord=1, axis=-1))
+    #         rwd = -(od3 < self.orientation_threshold_1).astype(np.float32) # 1 direction
+    #         return rwd
         
         # elif reward_type == "3":
         #     d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
@@ -801,8 +838,4 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         #         od = np.linalg.norm(achieved_goal[...,3:] - desired_goal[...,3:],ord=1, axis=-1)
         #         rwd -= (od > self.orientation_threshold).astype(np.float32)
         #     return rwd
-            
-        
-    def compute_xy_fail(self, achieved_goal, desired_goal):
-        d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
-        return d > 0.04
+    
