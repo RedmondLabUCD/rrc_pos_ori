@@ -696,12 +696,15 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
 
-        elif reward_type == "ori_only":
+        elif reward_type == "ori_only_sparse":
             rwd = -(orientation_error > self.orientation_threshold).astype(np.float32)
             d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
             rwd -= (d_z > self.distance_threshold_z).astype(np.float32)  # Z involved
             return rwd
         
+        elif reward_type == "ori_only_dis":
+            return -orientation_error
+            
     def compute_xy_fail(self, achieved_goal, desired_goal):
         d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
         return d > 0.04

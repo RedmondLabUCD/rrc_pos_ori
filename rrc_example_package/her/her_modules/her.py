@@ -37,8 +37,9 @@ class her_sampler:
         temp_g = transitions['g'].copy()
 
         transitions['g'][her_indexes] = future_ag
+        
+
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
-            print('I am not here')
             transitions['g'][:,2] = temp_g[:,2]
             # only replace x and y components of goal
             if self.args.strategy == '1':
@@ -61,9 +62,17 @@ class her_sampler:
             if self.args.strategy == '4':
                 if epoch < self.args.ori_start:
                     transitions['g'][:,3:] = temp_g[:,3:]
+            # Growing orientation invlvement ratio
+        #     if self.args.strategy == '6':
+        #         if epoch < 80:
                     
-        elif self.args.reward_type == "ori_only": 
+        # elif self.args.reward_type == "6":
+            
+        elif self.args.reward_type == "ori_only_sparse": 
             transitions['g'][:,:2] = temp_g[:,:2]
+
+        elif self.args.reward_type == "ori_only_dis":
+            transitions['g'] = temp_g
             
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)
