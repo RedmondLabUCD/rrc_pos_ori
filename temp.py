@@ -57,3 +57,68 @@ print(q)
 #%%
 import math
 print(math.radians(90))
+#%%
+from scipy.spatial.transform import Rotation as R
+x = [0,0,0,1]
+y = [-0.5,0,0.5,1]
+#%%
+from scipy.spatial.transform import Rotation as R
+a = [[0,0,0,1],
+     [0,0,0,1],
+     [0,0,0,1]]
+
+b = [[0.19134172, 0.46193977 ,0.19134172 ,0.8446232],
+     [0.19134172, 0.46193977 ,0.19134172 ,0.8446232],
+     [0.19134172, 0.46193977 ,0.19134172 ,0.8446232]
+     ]
+
+a = R.from_quat(a)
+b = R.from_quat(b)
+error_rot = a.inv() * b
+print(error_rot)
+orientation_error = error_rot.magnitude()
+print(orientation_error)
+#%%
+x = R.from_quat(x)
+y = R.from_quat(y)
+error_rot = x.inv() * y
+orientation_error = error_rot.magnitude()
+print(orientation_error)
+r1 = x.as_euler('xyz',degrees=True)
+r2 = y.as_euler('xyz',degrees=True)
+q1 = R.from_euler('xyz',r1,degrees=True).as_quat()
+q2 = R.from_euler('xyz',r2,degrees=True).as_quat()
+print(r1)
+print(r2)
+print(q1)
+print(q2)
+#%%
+from scipy.spatial.transform import Rotation as R
+r1 = [45,45,45]
+r2 = [0,0,0]
+q1 = R.from_euler('xyz',r1,degrees=True).as_quat()
+q2 = R.from_euler('xyz',r2,degrees=True).as_quat()
+print(q1)
+print(q2)
+print('--'*30)
+x = R.from_quat(q1)
+y = R.from_quat(q2)
+error_rot = x.inv() * y
+orientation_error = error_rot.magnitude()
+print(error_rot.as_euler('xyz',degrees=True))
+print(orientation_error)
+print('--'*30)
+r1 = x.as_euler('xyz',degrees=True)
+r2 = y.as_euler('xyz',degrees=True)
+
+q1 = R.from_euler('xyz',r1,degrees=True).as_quat()
+q2 = R.from_euler('xyz',r2,degrees=True).as_quat()
+print(r1)
+print(r2)
+print('--'*30)
+print(q1)
+print(q2)
+#%%
+a = [1,2,3,4,5,6,7]
+print(a[3:])
+

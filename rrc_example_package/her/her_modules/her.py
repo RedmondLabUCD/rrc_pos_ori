@@ -61,7 +61,7 @@ class her_sampler:
                 if epoch < self.args.ori_start:
                     transitions['g'][:,2:] = temp_g[:,2:]
                     
-        elif self.args.reward_type == "ori_only_3" or self.args.reward_type == "ori_only_1":
+        elif self.args.reward_type == "ori_only": 
             transitions['g'][:,:3] = temp_g[:,:3]
             
         # to get the params to re-compute reward

@@ -225,7 +225,6 @@ class ddpg_agent_rrc:
 
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
