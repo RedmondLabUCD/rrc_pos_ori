@@ -71,6 +71,7 @@ def main():
                                            difficulty = args.difficulty,
                                            ori_start = args.ori_start,
                                            ori_reward_type = args.ori_reward_type,
+                                           full_ori_epoch = args.full_ori_epoch
                                            )
     # wrap in domain randomisation environment
     # set random seeds for reproduce

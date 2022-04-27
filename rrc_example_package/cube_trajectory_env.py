@@ -339,7 +339,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         difficulty=4, sparse_rewards=True, step_size=101, distance_threshold=0.02,orientation_threshold=22,distance_threshold_z=0.012,
         max_steps=50, visualization=False, goal_trajectory=None, steps_per_goal=50, xy_only=False,
         env_type='sim', obs_type='default', env_wrapped=False, increase_fps=False, disable_arm3=False,reward_type ='1',ori_start = 200,
-        ori_reward_type = 'bonus',
+        ori_reward_type = 'bonus',full_ori_epoch=150,
     ):
         """Initialize.
 
@@ -380,6 +380,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         self.difficulty = difficulty
         self.ori_start = ori_start
         self.ori_reward_type = ori_reward_type
+        self.full_ori_epoch = full_ori_epoch
         
         self.cube_scale = 1
         
@@ -694,6 +695,13 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
                 rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
                 rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
+            return rwd
+        
+        elif reward_type == "6":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            ori_ratio = epoch / self.full_ori_epoch
+            rwd -= ori_ratio * (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
 
         elif reward_type == "ori_only_sparse":

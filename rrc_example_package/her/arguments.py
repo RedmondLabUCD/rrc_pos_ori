@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument('--ori-possibility_st2', type=float, default=0.9, help='scale the z rewards')
     
     #strategy 3
-    parser.add_argument('--full-ori-epoch', type=int, default=150, help='scale the z rewards')
+    parser.add_argument('--full-ori-epoch', type=int, default=300, help='scale the z rewards')
     
     
     args = parser.parse_args()

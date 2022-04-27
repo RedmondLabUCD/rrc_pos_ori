@@ -38,7 +38,6 @@ class her_sampler:
 
         transitions['g'][her_indexes] = future_ag
         
-
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             transitions['g'][:,2] = temp_g[:,2]
             # only replace x and y components of goal
@@ -63,10 +62,11 @@ class her_sampler:
                 if epoch < self.args.ori_start:
                     transitions['g'][:,3:] = temp_g[:,3:]
             # Growing orientation invlvement ratio
-        #     if self.args.strategy == '6':
-        #         if epoch < 80:
-                    
-        # elif self.args.reward_type == "6":
+        
+        elif self.args.reward_type == "6":
+            rad_num = np.random.uniform(0,1.0)
+            if rad_num >= (epoch / self.args.full_ori_epoch):
+                transitions['g'][:,3:] = temp_g[:,3:] # Replace back the orientation and only train the position
             
         elif self.args.reward_type == "ori_only_sparse": 
             transitions['g'][:,:2] = temp_g[:,:2]
