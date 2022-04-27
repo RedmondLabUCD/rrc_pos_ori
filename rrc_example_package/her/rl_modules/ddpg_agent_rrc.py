@@ -227,7 +227,6 @@ class ddpg_agent_rrc:
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         elif self.args.reward_type == "ori_only_dis":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
