@@ -223,15 +223,15 @@ class ddpg_agent_rrc:
         # sample the episodes
 
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
-        # print('-'*60)
-        # print('Before: ',transitions['r'])
+        print('-'*60)
+        print('Before: ',transitions['r'])
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         elif self.args.reward_type == "ori_only_dis":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         elif self.args.reward_type == '114':
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-        # print('After: ',transitions['r'])
+        print('After: ',transitions['r'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
