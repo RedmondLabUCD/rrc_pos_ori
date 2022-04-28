@@ -8,11 +8,16 @@ from rrc_example_package.her.rl_modules.replay_buffer import replay_buffer
 from rrc_example_package.her.rl_modules.models import actor, critic
 from rrc_example_package.her.mpi_utils.normalizer import normalizer
 from rrc_example_package.her.her_modules.her import her_sampler
-from rrc_example_package.utils import CsvCreator
+from rrc_example_package.utils import CsvCreator,init_kinematics,process_inputs
 import time
 import pybullet as p
 from copy import copy
+from scipy.spatial.transform import Rotation as R
 
+
+_CUBE_WIDTH = 0.065
+# Set the distance between the center of the cube to the surface of the cube a bit bigger than the real value.
+_cube_3d_radius = 1.2 * _CUBE_WIDTH * np.sqrt(3) / 2  
 
 """
 ddpg with HER (MPI-version)
@@ -23,10 +28,17 @@ class ddpg_agent_rrc:
         self.args = args
         self.env = env
         self.env_params = env_params
+        self.kinematics = init_kinematics()
         # create the normalizer
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
+        if self.args.teach_collect:
+            self.teach_actor_network = actor(env_params)
+            self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std, actor_network_dict,_ = torch.load(self.args.teach_ac_model_path)
+            self.teach_actor_network.load_state_dict(actor_network_dict)
+            self.teach_actor_network.eval()
+            
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
         if args.ct_learning:
@@ -87,9 +99,15 @@ class ddpg_agent_rrc:
                         # start to collect samples
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
-                                input_tensor = self._preproc_inputs(obs, g)
-                                pi = self.actor_network(input_tensor)
-                                action = self._select_actions(pi)
+                                if epoch <= self.args.teach_epoch:
+                                    input_tensor = process_inputs(obs, g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                    pi = self.teach_actor_network(input_tensor)
+                                    # action = pi.detach().cpu().numpy().squeeze()
+                                    action = self._select_actions(pi)
+                                else:
+                                    input_tensor = self._preproc_inputs(obs, g)
+                                    pi = self.actor_network(input_tensor)
+                                    action = self._select_actions(pi)
                             # feed the actions into the environment
                             observation_new, _, _, info = self.env.step(action)
                             obs_new = observation_new['observation']
@@ -137,9 +155,9 @@ class ddpg_agent_rrc:
                 success_rate,pos_success_rate,ori_success_rate = self._eval_agent()
                 self.save_model(epoch)
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    print('[{}] epoch: {} eval_rate: {:.3f} eval_pos_rate: {:.3f} eval_ori_rate: {:.3f} explore_rate: {:.3f} explore_pos_rate: {:.3f} explore_ori_rate: {:.3f} a_loss: {:.3f} q_loss: {:.3f} rrc: {:.0f} rrc_pos: {:.0f} rrc_ori: {:.0f} z_mean: {:.3f} xy: {:.3f}'\
-                          .format(datetime.now(), epoch, success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy))
-                    log = [epoch,success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy]
+                    print('[{}] epoch: {} eval_rate: {:.3f} eval_pos_rate: {:.3f} eval_ori_rate: {:.3f} explore_rate: {:.3f} explore_pos_rate: {:.3f} explore_ori_rate: {:.3f} a_loss: {:.3f} q_loss: {:.3f} rrc: {:.0f} rrc_pos: {:.0f} rrc_ori: {:.0f} z_mean: {:.3f} xy: {:.3f} ori: {:.3f}'\
+                          .format(datetime.now(), epoch, success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy, self.ori))
+                    log = [epoch,success_rate,pos_success_rate,ori_success_rate, explore_success,explore_success_pos,explore_success_ori, np.mean(copy(actor_loss)), np.mean(copy(critic_loss)), self.rrc,self.rrc_pos,self.rrc_ori, self.z, self.xy,self.ori]
                     self.csv.update(log=log,path=self.model_path+'/log.csv')
 
     def save_model(self, epoch):
@@ -221,17 +239,9 @@ class ddpg_agent_rrc:
     # update the network
     def _update_network(self):
         # sample the episodes
-
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
-        # print('-'*60)
-        # print('Before: ',transitions['r'])
-        if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
-            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-        elif self.args.reward_type == "ori_only_dis":
-            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-        elif self.args.reward_type == '114':
-            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
-        # print('After: ',transitions['r'])
+        if self.args.tip:
+            transitions['r'] += self.get_tip_reward(transitions['obs'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
@@ -264,12 +274,6 @@ class ddpg_agent_rrc:
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
-            if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
-                clip_return += 50 # TODO: calculate proper value!!!
-            elif self.args.reward_type == "ori_only_dis":
-                clip_return += 50 # TODO: calculate proper value!!!
-            elif self.args.reward_type == '114':
-                clip_return += 50 # TODO: calculate proper value!!!
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
         real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
@@ -301,14 +305,30 @@ class ddpg_agent_rrc:
         # reward is negative of z distance
         r_z = -self.args.z_scale * scale * z_dist
         return r_z
-        
-        
+    
+    def get_tip_reward(self,obs):
+        angular_poses = obs[...,:9]
+        tip_poses = []
+        for angular_pos in angular_poses:
+            tip_poses.append(self.kinematics.forward_kinematics(angular_pos))
+        tip_poses = np.array(tip_poses)
+        tip0 = tip_poses[:,[0]].squeeze(axis=1)
+        tip1 = tip_poses[:,[1]].squeeze(axis=1)
+        tip2 = tip_poses[:,[2]].squeeze(axis=1)
+        d0 = np.expand_dims(np.linalg.norm(tip0 - obs[...,self.env.x_pos:self.env.x_pos+3], axis=-1), 1)
+        rwd = - self.args.tip_ratio * (d0 > _cube_3d_radius).astype(np.float32)
+        d1 = np.expand_dims(np.linalg.norm(tip1 - obs[...,self.env.x_pos:self.env.x_pos+3], axis=-1), 1)
+        rwd -= self.args.tip_ratio * (d1 > _cube_3d_radius).astype(np.float32)
+        d2 = np.expand_dims(np.linalg.norm(tip2 - obs[...,self.env.x_pos:self.env.x_pos+3], axis=-1), 1)
+        rwd -= self.args.tip_ratio * (d2 > _cube_3d_radius).astype(np.float32)
+        return rwd
+    
     # do the evaluation (and store the eval episodes in buffer)
     def _eval_agent(self):
         total_success_rate = []
         total_pos_success_rate = []
         total_ori_success_rate = []
-        r_z, xy, rrc,rrc_pos,rrc_ori = [], [], [],[],[]
+        r_z, xy,r_ori, rrc,rrc_pos,rrc_ori =[], [], [], [],[],[]
         mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
         for n in range(self.args.n_test_rollouts):
             # reset the rollouts
@@ -344,6 +364,12 @@ class ddpg_agent_rrc:
                 ori_success_rate.append(info['ori_is_success'])
                 per_success_rate.append(info['is_success'])
                 xy.append(np.linalg.norm(ag[0:2] - g[0:2], axis=-1))
+                
+                rotation_d = R.from_quat(g[...,3:])
+                rotation_a = R.from_quat(ag[...,3:])
+                error_rot = rotation_d.inv() * rotation_a
+                r_ori.append(error_rot.magnitude())
+                
             # Append obs
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
@@ -385,6 +411,7 @@ class ddpg_agent_rrc:
         self.rrc_ori = MPI.COMM_WORLD.allreduce(np.mean(rrc_ori), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.z = MPI.COMM_WORLD.allreduce(np.mean(r_z), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         self.xy = MPI.COMM_WORLD.allreduce(10*np.mean(xy), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
+        self.ori = MPI.COMM_WORLD.allreduce(np.mean(r_ori), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         return global_success_rate / MPI.COMM_WORLD.Get_size(), global_pos_success_rate / MPI.COMM_WORLD.Get_size(),global_ori_success_rate / MPI.COMM_WORLD.Get_size()
 
     def load_model(self,ac_model_path):

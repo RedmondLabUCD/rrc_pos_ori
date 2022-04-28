@@ -52,29 +52,16 @@ def get_args():
     parser.add_argument('--trajectory-aware', type=int, default=0, help='whether to make agent aware it is dealing with trajectories')
     parser.add_argument('--disable-arm3', type=int, default=0, help='whether to disable the robots 3rd arm')
     
-    
-    
-    
     #Orientation:
-    parser.add_argument('--orientation-threshold', type=int, default=33, help='orientation-threshold')
+    parser.add_argument('--orientation-threshold', type=int, default=30, help='orientation-threshold')
     parser.add_argument('--reward-type', type=str, default='3', help='reward-type')
-    parser.add_argument('--ori-reward-type', type=str, default='punish', help='reward-type')
-    parser.add_argument('--ori-start', type=int, default=0, help='ori-start')
-    parser.add_argument('--strategy', type=str, default='1', help='ori-start')
+    parser.add_argument('--teach-collect', type=int, default=1, help='teach-learning')
+    parser.add_argument('--teach-ac-model-path', type=str, default='acmodel_teach.pt', help='teach-learning')
+    parser.add_argument('--teach-epoch', type=int, default=60, help='teach-learning')
+    parser.add_argument('--ct-learning', type=int, default=0, help='teach-learning')
+    parser.add_argument('--tip', type=int, default=1, help='teach-learning')
+    parser.add_argument('--tip-ratio', type=float, default=0.3, help='teach-learning')
     
-    #strategy 1
-    parser.add_argument('--pos-possibility_st1', type=float, default=0.75, help='scale the z rewards')
-    
-    #strategy 2
-    parser.add_argument('--pos-possibility_st2', type=float, default=0.6, help='scale the z rewards')
-    parser.add_argument('--ori-possibility_st2', type=float, default=0.9, help='scale the z rewards')
-    
-    #strategy 3
-    parser.add_argument('--full-ori-epoch', type=int, default=300, help='scale the z rewards')
-    
-    # Continous learnining
-    parser.add_argument('--ct-learning', type=int, default=1, help='ct-learning')
-    parser.add_argument('--ct-path', type=str, default='acmodel295.pt', help='ct-learning')
     
     args = parser.parse_args()
     return args
