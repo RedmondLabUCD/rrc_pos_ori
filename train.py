@@ -44,7 +44,9 @@ def main():
         print('pos-possibility_st2:  ',args.pos_possibility_st2)
         print('ori-possibility_st2:  ',args.ori_possibility_st2)
         print('full-ori-epoch:       ',args.full_ori_epoch)
-        
+        print(" ")
+        print('We are currently training in:')
+        print(os.path.abspath(os.path.curdir))
         print('\n#########\nArgs for {}:\n{}\n'.format(args.exp_dir, args))
         
     if args.action_type == 'torque':

@@ -23,10 +23,14 @@ class ddpg_agent_rrc:
         self.args = args
         self.env = env
         self.env_params = env_params
+        # create the normalizer
+        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
-        
+        if args.ct_learning:
+            self.load_model(self.args.ct_path)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
@@ -49,9 +53,6 @@ class ddpg_agent_rrc:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward, self.env.steps_per_goal, self.args.trajectory_aware,args = self.args)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
-        # create the normalizer
-        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # path to save the model
         self.model_path = os.path.join(self.args.save_dir, self.args.exp_dir)
         self.csv = CsvCreator()
@@ -222,11 +223,15 @@ class ddpg_agent_rrc:
         # sample the episodes
 
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
-        
+        # print('-'*60)
+        # print('Before: ',transitions['r'])
         if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         elif self.args.reward_type == "ori_only_dis":
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
+        elif self.args.reward_type == '114':
+            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
+        # print('After: ',transitions['r'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
@@ -262,6 +267,8 @@ class ddpg_agent_rrc:
             if self.args.reward_type == "1" or self.args.reward_type == "2" or self.args.reward_type == "3":
                 clip_return += 50 # TODO: calculate proper value!!!
             elif self.args.reward_type == "ori_only_dis":
+                clip_return += 50 # TODO: calculate proper value!!!
+            elif self.args.reward_type == '114':
                 clip_return += 50 # TODO: calculate proper value!!!
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
@@ -380,3 +387,12 @@ class ddpg_agent_rrc:
         self.xy = MPI.COMM_WORLD.allreduce(10*np.mean(xy), op=MPI.SUM) / MPI.COMM_WORLD.Get_size()
         return global_success_rate / MPI.COMM_WORLD.Get_size(), global_pos_success_rate / MPI.COMM_WORLD.Get_size(),global_ori_success_rate / MPI.COMM_WORLD.Get_size()
 
+    def load_model(self,ac_model_path):
+        print('loading the model')
+        o_mean, o_std, g_mean, g_std, actor_network_dict, critic_network_dict = torch.load(ac_model_path)
+        self.o_norm.mean = o_mean
+        self.o_norm.std = o_std
+        self.g_norm.mean = g_mean
+        self.g_norm.std = g_std
+        self.actor_network.load_state_dict(actor_network_dict)
+        self.critic_network.load_state_dict(critic_network_dict)
