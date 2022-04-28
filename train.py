@@ -31,19 +31,13 @@ def main():
     args = get_args()
     args.domain_randomization = 0
 
-    if args.strategy == '4':
-        args.ori_start = 80
-    
     if MPI.COMM_WORLD.Get_rank() == 0:
         print('domain-randomization: ',args.domain_randomization)
         print('increaser_fps:        ',args.increase_fps)
         print('reward-type:          ',args.reward_type)
-        print('ori-start:            ',args.ori_start)
-        print('strategy:             ',args.strategy)
-        print('pos-possibility_st1:  ',args.pos_possibility_st1)
-        print('pos-possibility_st2:  ',args.pos_possibility_st2)
-        print('ori-possibility_st2:  ',args.ori_possibility_st2)
-        print('full-ori-epoch:       ',args.full_ori_epoch)
+        print('teach-epoch:          ',args.teach_epoch)
+        print('teach-collecting:     ',args.teach_collect)
+        print('ct-learning:          ',args.ct_learning)
         print(" ")
         print('We are currently training in:')
         print(os.path.abspath(os.path.curdir))
@@ -57,7 +51,6 @@ def main():
     # initialise environment
     env = cube_trajectory_env.SimtoRealEnv(visualization=0,
                                            max_steps=args.ep_len,
-                                           # xy_only=(args.xy_only==1),
                                            steps_per_goal=args.steps_per_goal,
                                            step_size=args.step_size,
                                            env_type='sim',
@@ -71,9 +64,6 @@ def main():
                                            orientation_threshold = args.orientation_threshold,
                                            reward_type = args.reward_type,
                                            difficulty = args.difficulty,
-                                           ori_start = args.ori_start,
-                                           ori_reward_type = args.ori_reward_type,
-                                           full_ori_epoch = args.full_ori_epoch
                                            )
     # wrap in domain randomisation environment
     # set random seeds for reproduce
