@@ -725,6 +725,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         elif reward_type == "407":
             d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
             rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            rwd += 3 * (orientation_error < self.orientation_threshold).astype(np.float32)
             return rwd
         
         elif reward_type == "114":
