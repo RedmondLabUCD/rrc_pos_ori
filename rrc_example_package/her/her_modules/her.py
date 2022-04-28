@@ -61,8 +61,6 @@ class her_sampler:
             if self.args.strategy == '4':
                 if epoch < self.args.ori_start:
                     transitions['g'][:,3:] = temp_g[:,3:]
-            # Growing orientation invlvement ratio
-        
         elif self.args.reward_type == "6":
             rad_num = np.random.uniform(0,1.0)
             if rad_num >= (epoch / self.args.full_ori_epoch):
@@ -74,6 +72,9 @@ class her_sampler:
         elif self.args.reward_type == "ori_only_dis":
             transitions['g'] = temp_g
             
+        elif self.args.reward_type == '114':
+            transitions['g'][:,2] = temp_g[:,2]
+
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)
         transitions = {k: transitions[k].reshape(batch_size, *transitions[k].shape[1:]) for k in transitions.keys()}

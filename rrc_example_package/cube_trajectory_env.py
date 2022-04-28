@@ -22,6 +22,7 @@ from rrc_example_package.trifinger_simulation.python.trifinger_simulation.tasks 
 from scipy.spatial.transform import Rotation as R
 import time
 import math
+import pybullet as p
 
 
 
@@ -540,6 +541,7 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
                 orientation=trajectory[0][1].orientation,
                 pybullet_client_id=self.platform.simfinger._pybullet_client_id,
             )
+            p.resetDebugVisualizerCamera(cameraDistance=0.45, cameraYaw=135, cameraPitch=-45.0, cameraTargetPosition=[0, 0.0, 0.0])
 
         self.info = {"time_index": -1, "trajectory": trajectory, "rrc_reward": 0, "rrc_reward_pos":0,"rrc_reward_ori":0,"xy_fail": False}
         
@@ -712,6 +714,24 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         
         elif reward_type == "ori_only_dis":
             return -orientation_error
+        
+        elif reward_type == "813":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
+            rwd = -(rwd != 0).astype(np.float32)
+            return rwd
+        
+        elif reward_type == "407":
+            d_xyz = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d_xyz > self.distance_threshold).astype(np.float32)
+            return rwd
+        
+        elif reward_type == "114":
+            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
+            return rwd
             
     def compute_xy_fail(self, achieved_goal, desired_goal):
         d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)

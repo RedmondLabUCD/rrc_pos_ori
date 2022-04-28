@@ -58,6 +58,9 @@ print(q)
 import math
 print(math.radians(90))
 #%%
+import os
+print(os.path.abspath(os.path.curdir))
+#%%
 from scipy.spatial.transform import Rotation as R
 x = [0,0,0,1]
 y = [-0.5,0,0.5,1]
@@ -121,4 +124,5 @@ print(q2)
 #%%
 a = [1,2,3,4,5,6,7]
 print(a[3:])
-
+#%%
+print(3>2 and 2>1)

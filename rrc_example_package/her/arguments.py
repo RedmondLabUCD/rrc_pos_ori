@@ -56,7 +56,7 @@ def get_args():
     
     
     #Orientation:
-    parser.add_argument('--orientation-threshold', type=int, default=22, help='orientation-threshold')
+    parser.add_argument('--orientation-threshold', type=int, default=33, help='orientation-threshold')
     parser.add_argument('--reward-type', type=str, default='3', help='reward-type')
     parser.add_argument('--ori-reward-type', type=str, default='punish', help='reward-type')
     parser.add_argument('--ori-start', type=int, default=0, help='ori-start')
@@ -72,6 +72,9 @@ def get_args():
     #strategy 3
     parser.add_argument('--full-ori-epoch', type=int, default=300, help='scale the z rewards')
     
+    # Continous learnining
+    parser.add_argument('--ct-learning', type=int, default=1, help='ct-learning')
+    parser.add_argument('--ct-path', type=str, default='acmodel295.pt', help='ct-learning')
     
     args = parser.parse_args()
     return args
