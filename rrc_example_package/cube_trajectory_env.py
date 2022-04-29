@@ -709,6 +709,17 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
+        
+        elif reward_type =='scratch_pos':
+            d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            return -(d > self.distance_threshold).astype(np.float32)
+        
+        elif reward_type =='scratch_pos_ori':
+            d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
+            rwd = -(d > self.distance_threshold).astype(np.float32)
+            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
+            rwd = -(rwd < -0.01).astype(np.float32)
+            return rwd
             
     def compute_xy_fail(self, achieved_goal, desired_goal):
         d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
