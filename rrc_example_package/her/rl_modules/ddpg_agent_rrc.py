@@ -34,6 +34,7 @@ class ddpg_agent_rrc:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
         if self.args.teach_collect:
+            print('loading the teaching NN')
             self.teach_actor_network = actor(env_params)
             self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std, actor_network_dict,_ = torch.load(self.args.teach_ac_model_path)
             self.teach_actor_network.load_state_dict(actor_network_dict)
@@ -41,7 +42,7 @@ class ddpg_agent_rrc:
             
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
-        if args.ct_learning:
+        if self.args.ct_learning:
             self.load_model(self.args.ct_path)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
@@ -99,7 +100,7 @@ class ddpg_agent_rrc:
                         # start to collect samples
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
-                                if epoch <= self.args.teach_epoch:
+                                if epoch < self.args.teach_epoch and self.args.teach_collect:
                                     input_tensor = process_inputs(obs, g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
                                     pi = self.teach_actor_network(input_tensor)
                                     # action = pi.detach().cpu().numpy().squeeze()
@@ -242,6 +243,8 @@ class ddpg_agent_rrc:
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
         if self.args.tip:
             transitions['r'] += self.get_tip_reward(transitions['obs'])
+        if self.args.reward_type == 'ct':
+            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
@@ -274,6 +277,8 @@ class ddpg_agent_rrc:
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
+            if self.args.reward_type == 'ct':
+                clip_return += 50 # TODO: calculate proper value!!!
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
         real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
