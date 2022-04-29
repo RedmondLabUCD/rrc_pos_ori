@@ -34,8 +34,10 @@ class ddpg_agent_rrc:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
         if self.args.teach_collect:
+            t_env_params = copy(env_params)
+            t_env_params['goal'] = 3
             print('loading the teacher')
-            self.teach_actor_network = actor(env_params)
+            self.teach_actor_network = actor(t_env_params)
             self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std, actor_network_dict,_ = torch.load(self.args.teach_ac_model_path)
             self.teach_actor_network.load_state_dict(actor_network_dict)
             self.teach_actor_network.eval()
@@ -87,6 +89,7 @@ class ddpg_agent_rrc:
                 for _ in range(self.args.n_cycles):
                     mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                     for _ in range(self.args.num_rollouts_per_mpi):
+                        
                         # reset the rollouts
                         ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
                         # reset the environment
@@ -99,9 +102,10 @@ class ddpg_agent_rrc:
                         for t in range(self.env_params['max_timesteps']):
                             with torch.no_grad():
                                 if epoch < self.args.teach_epoch and self.args.teach_collect:
-                                    input_tensor = process_inputs(obs, g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                    t_g = copy(g)[:3]
+                                    t_obs = copy(obs)
+                                    input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
                                     pi = self.teach_actor_network(input_tensor)
-                                    # action = pi.detach().cpu().numpy().squeeze()
                                     action = self._select_actions(pi)
                                 else:
                                     input_tensor = self._preproc_inputs(obs, g)
@@ -183,6 +187,11 @@ class ddpg_agent_rrc:
         if self.args.cuda:
             inputs = inputs.cuda()
         return inputs
+    
+    def _teach_obs_process(self, obs):
+        print(obs['desired_goal'])
+        obs["desired_goal"] = obs['desired_goal'][:3]
+        obs["achieved_goal"] = obs['achieved_goal'][:3]
     
     # this function will choose action for the agent and do the exploration
     def _select_actions(self, pi):
