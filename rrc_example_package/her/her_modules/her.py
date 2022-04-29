@@ -14,7 +14,6 @@ class her_sampler:
         self.trajectory_aware = trajectory_aware
         self.args = args
     
-
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions,epoch):
         T = episode_batch['actions'].shape[1]
         rollout_batch_size = episode_batch['actions'].shape[0]
@@ -40,6 +39,9 @@ class her_sampler:
         
         if self.args.reward_type == "ori_z": 
             transitions['g'][:,:2] = temp_g[:,:2]
+            
+        elif self.args.reward_type == 'ct':
+            transitions['g'][:,2] = temp_g[:,2]
 
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)

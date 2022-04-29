@@ -59,6 +59,7 @@ def get_args():
     parser.add_argument('--teach-ac-model-path', type=str, default='acmodel_teach.pt', help='teach-learning')
     parser.add_argument('--teach-epoch', type=int, default=60, help='teach-learning')
     parser.add_argument('--ct-learning', type=int, default=0, help='teach-learning')
+    parser.add_argument('--ct-path', type=str, default='acmodel_ct.pt', help='teach-learning')
     parser.add_argument('--tip', type=int, default=1, help='teach-learning')
     parser.add_argument('--tip-ratio', type=float, default=0.3, help='teach-learning')
     
