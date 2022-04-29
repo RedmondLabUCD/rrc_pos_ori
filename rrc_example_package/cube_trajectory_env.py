@@ -532,12 +532,20 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
         
         # visualize the goal
         if self.visualization and self.env_type == 'sim':
-            self.goal_marker = trifinger_simulation.visual_objects.CubeMarker(
-                width=task.move_cube._CUBE_WIDTH,
-                position=trajectory[0][1].position,
-                orientation=trajectory[0][1].orientation,
-                pybullet_client_id=self.platform.simfinger._pybullet_client_id,
-            )
+            if self.difficulty == 3:
+                self.goal_marker = trifinger_simulation.visual_objects.CubeMarker(
+                    width=task.move_cube._CUBE_WIDTH,
+                    position=trajectory[0][1].position,
+                    orientation=trajectory[0][1].orientation,
+                    pybullet_client_id=self.platform.simfinger._pybullet_client_id,
+                )
+            elif self.difficulty == 4:
+                self.goal_marker = trifinger_simulation.visual_objects.CubeMarker2(
+                    # width=task.move_cube._CUBE_WIDTH,
+                    position=trajectory[0][1].position,
+                    orientation=trajectory[0][1].orientation,
+                    pybullet_client_id=self.platform.simfinger._pybullet_client_id,
+                )
             p.resetDebugVisualizerCamera(cameraDistance=0.45, cameraYaw=135, cameraPitch=-45.0, cameraTargetPosition=[0, 0.0, 0.0])
 
         self.info = {"time_index": -1, "trajectory": trajectory, "rrc_reward": 0, "rrc_reward_pos":0,"rrc_reward_ori":0,"xy_fail": False}
@@ -685,40 +693,23 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
         
-        elif reward_type == "pos_ori_sep":
+        elif reward_type == "p_o":
             d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
             rwd = -(d > self.distance_threshold).astype(np.float32)
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
 
-        elif reward_type == "pos_ori_tog":
+        elif reward_type == "po":
             d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
             rwd = -(d > self.distance_threshold).astype(np.float32)
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             rwd = -(rwd < -0.01).astype(np.float32)
             return rwd
         
-        elif reward_type == "ori_z":
+        elif reward_type == "oz":
             rwd = -(orientation_error > self.orientation_threshold).astype(np.float32)
             d_z = np.linalg.norm(achieved_goal[...,2:3] - desired_goal[...,2:3],ord=1, axis=-1)
             rwd -= (d_z > self.distance_threshold_z).astype(np.float32)
-            return rwd
-        
-        elif reward_type == "ct":
-            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
-            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
-            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
-            return rwd
-        
-        elif reward_type =='scratch_pos':
-            d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
-            return -(d > self.distance_threshold).astype(np.float32)
-        
-        elif reward_type =='scratch_pos_ori':
-            d = np.linalg.norm(achieved_goal[...,0:3] - desired_goal[...,0:3], axis=-1)
-            rwd = -(d > self.distance_threshold).astype(np.float32)
-            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
-            rwd = -(rwd < -0.01).astype(np.float32)
             return rwd
             
     def compute_xy_fail(self, achieved_goal, desired_goal):

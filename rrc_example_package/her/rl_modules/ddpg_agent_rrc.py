@@ -34,7 +34,7 @@ class ddpg_agent_rrc:
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
         if self.args.teach_collect:
-            print('loading the teaching NN')
+            print('loading the teacher')
             self.teach_actor_network = actor(env_params)
             self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std, actor_network_dict,_ = torch.load(self.args.teach_ac_model_path)
             self.teach_actor_network.load_state_dict(actor_network_dict)
@@ -42,8 +42,6 @@ class ddpg_agent_rrc:
             
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
-        if self.args.ct_learning:
-            self.load_model(self.args.ct_path)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
@@ -241,10 +239,6 @@ class ddpg_agent_rrc:
     def _update_network(self):
         # sample the episodes
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
-        if self.args.tip:
-            transitions['r'] += self.get_tip_reward(transitions['obs'])
-        if self.args.reward_type == 'ct':
-            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)

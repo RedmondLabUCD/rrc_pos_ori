@@ -37,8 +37,6 @@ def main():
         print('reward-type:          ',args.reward_type)
         print('teach-epoch:          ',args.teach_epoch)
         print('teach-collecting:     ',args.teach_collect)
-        print('ct-learning:          ',args.ct_learning)
-        print("tip:                  ",args.tip)
         print('We are currently training in:')
         print(os.path.abspath(os.path.curdir))
         print('\n#########\nArgs for {}:\n{}\n'.format(args.exp_dir, args))

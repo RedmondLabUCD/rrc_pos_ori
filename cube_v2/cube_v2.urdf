@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<robot name="cube_v2">
+    <link name="cube">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="cube_v2.obj" />
+            </geometry>
+            <material name="white">
+        	<color rgba="1 1 1 .6"/>
+      	    </material>
+        </visual>
+    </link>
+</robot>
