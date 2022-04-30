@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from rrc_example_package.her.mpi_utils.mpi_utils import sync_networks, sync_grads
 from rrc_example_package.her.rl_modules.replay_buffer import replay_buffer
-from rrc_example_package.her.rl_modules.models import actor, critic
+from rrc_example_package.her.rl_modules.models import actor, critic,actor_bigger, critic_bigger
 from rrc_example_package.her.mpi_utils.normalizer import normalizer
 from rrc_example_package.her.her_modules.her import her_sampler
 from rrc_example_package.utils import CsvCreator,init_kinematics,process_inputs
@@ -42,14 +42,14 @@ class ddpg_agent_rrc:
             self.teach_actor_network.load_state_dict(actor_network_dict)
             self.teach_actor_network.eval()
             
-        self.actor_network = actor(env_params)
-        self.critic_network = critic(env_params)
+        self.actor_network = actor_bigger(env_params)
+        self.critic_network = critic_bigger(env_params)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
         # build up the target network
-        self.actor_target_network = actor(env_params)
-        self.critic_target_network = critic(env_params)
+        self.actor_target_network = actor_bigger(env_params)
+        self.critic_target_network = critic_bigger(env_params)
         # load the weights into the target networks
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
         self.critic_target_network.load_state_dict(self.critic_network.state_dict())
@@ -89,7 +89,6 @@ class ddpg_agent_rrc:
                 for _ in range(self.args.n_cycles):
                     mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                     for _ in range(self.args.num_rollouts_per_mpi):
-                        
                         # reset the rollouts
                         ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
                         # reset the environment
@@ -99,32 +98,56 @@ class ddpg_agent_rrc:
                         ag = observation['achieved_goal']
                         g = observation['desired_goal']
                         # start to collect samples
-                        for t in range(self.env_params['max_timesteps']):
-                            with torch.no_grad():
-                                if epoch < self.args.teach_epoch and self.args.teach_collect:
+                        radnum = np.random.uniform(0.0,1.0) # Take the possibility
+                        if epoch < 10:
+                            prt = 0.9
+                        elif epoch >= 10 and epoch <40:
+                            prt = 0.9 - ((epoch-10) * (0.8/30))
+                        elif epoch >= 40:
+                            prt = 0.1
+                        if radnum < prt:
+                            for t in range(self.env_params['max_timesteps']):
+                                with torch.no_grad():
                                     t_g = copy(g)[:3]
                                     t_obs = copy(obs)
                                     input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
                                     pi = self.teach_actor_network(input_tensor)
-                                    action = self._select_actions(pi)
-                                else:
+                                    # action = self._select_actions(pi)
+                                    action = pi.detach().cpu().numpy().squeeze()
+                                # feed the actions into the environment
+                                observation_new, _, _, info = self.env.step(action)
+                                obs_new = observation_new['observation']
+                                ag_new = observation_new['achieved_goal']
+                                g_new = observation_new['desired_goal']
+                                # append rollouts
+                                ep_obs.append(obs.copy())
+                                ep_ag.append(ag.copy())
+                                ep_g.append(g.copy())
+                                ep_actions.append(action.copy())
+                                # re-assign the observation
+                                obs = obs_new
+                                ag = ag_new
+                                g = g_new
+                        elif radnum >= prt:
+                            for t in range(self.env_params['max_timesteps']):
+                                with torch.no_grad():
                                     input_tensor = self._preproc_inputs(obs, g)
                                     pi = self.actor_network(input_tensor)
                                     action = self._select_actions(pi)
-                            # feed the actions into the environment
-                            observation_new, _, _, info = self.env.step(action)
-                            obs_new = observation_new['observation']
-                            ag_new = observation_new['achieved_goal']
-                            g_new = observation_new['desired_goal']
-                            # append rollouts
-                            ep_obs.append(obs.copy())
-                            ep_ag.append(ag.copy())
-                            ep_g.append(g.copy())
-                            ep_actions.append(action.copy())
-                            # re-assign the observation
-                            obs = obs_new
-                            ag = ag_new
-                            g = g_new
+                                # feed the actions into the environment
+                                observation_new, _, _, info = self.env.step(action)
+                                obs_new = observation_new['observation']
+                                ag_new = observation_new['achieved_goal']
+                                g_new = observation_new['desired_goal']
+                                # append rollouts
+                                ep_obs.append(obs.copy())
+                                ep_ag.append(ag.copy())
+                                ep_g.append(g.copy())
+                                ep_actions.append(action.copy())
+                                # re-assign the observation
+                                obs = obs_new
+                                ag = ag_new
+                                g = g_new
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
                         ep_g.append(g.copy())

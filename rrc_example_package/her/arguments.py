@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
     parser.add_argument('--clip-return', type=float, default=50, help='if clip the returns')
     parser.add_argument('--save-dir', type=str, default='rrc_example_package/her/saved_models/', help='the path to save the models')
-    parser.add_argument('--noise-eps', type=float, default=0.2, help='noise eps')
+    parser.add_argument('--noise-eps', type=float, default=0.15, help='noise eps')
     parser.add_argument('--random-eps', type=float, default=0.3, help='random eps')
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
