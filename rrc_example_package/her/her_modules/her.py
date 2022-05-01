@@ -1,5 +1,4 @@
 import numpy as np
-import time
 
 class her_sampler:
     def __init__(self, replay_strategy, replay_k, reward_func=None, steps_per_goal=None, trajectory_aware=False,args=None):
@@ -37,7 +36,7 @@ class her_sampler:
 
         transitions['g'][her_indexes] = future_ag
         
-        if self.args.reward_type == "poz": 
+        if self.args.reward_type == "po_z" or self.args.reward_type == "p_o_z":
             transitions['g'][:,2] = temp_g[:,2]
 
         # to get the params to re-compute reward
