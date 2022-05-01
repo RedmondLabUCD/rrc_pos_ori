@@ -693,11 +693,17 @@ class SimtoRealEnv(BaseCubeTrajectoryEnv):
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
 
-        elif reward_type == "poz":
+        elif reward_type == "po_z":
             d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
             rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
             rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             rwd = -(rwd < -0.01).astype(np.float32)
+            return rwd
+        
+        elif reward_type == "p_o_z":
+            d = np.linalg.norm(achieved_goal[...,0:2] - desired_goal[...,0:2], axis=-1)
+            rwd = -(d > self.distance_threshold * 0.8).astype(np.float32)
+            rwd -= (orientation_error > self.orientation_threshold).astype(np.float32)
             return rwd
         
             

@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from rrc_example_package.her.mpi_utils.mpi_utils import sync_networks, sync_grads
 from rrc_example_package.her.rl_modules.replay_buffer import replay_buffer
-from rrc_example_package.her.rl_modules.models import actor, critic,actor_bigger, critic_bigger
+from rrc_example_package.her.rl_modules.models import actor, critic
 from rrc_example_package.her.mpi_utils.normalizer import normalizer
 from rrc_example_package.her.her_modules.her import her_sampler
 from rrc_example_package.utils import CsvCreator,init_kinematics,process_inputs
@@ -33,23 +33,42 @@ class ddpg_agent_rrc:
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the network
-        if self.args.teach_collect:
-            t_env_params = copy(env_params)
-            t_env_params['goal'] = 3
-            print('loading the teacher')
-            self.teach_actor_network = actor(t_env_params)
+        self.actor_network = actor(env_params)
+        self.critic_network = critic(env_params)
+        
+        if self.args.teach_mode == 'teach_collect':
+            print('Loading the teacher for collecting the experience')
+            self.teach_actor_network = actor(env_params)
             self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std, actor_network_dict,_ = torch.load(self.args.teach_ac_model_path)
             self.teach_actor_network.load_state_dict(actor_network_dict)
             self.teach_actor_network.eval()
+            # a_loss: 1.032 q_loss: 0.761 rrc: -2322 rrc_pos: -1696 rrc_ori: -2948 z_mean: -0.789 xy: 1.406 ori: 2.052
+        elif self.args.teach_mode == 'actor_critic':
+            print('Loading the actor and critic from the teacher')
+            o_mean, o_std, g_mean, g_std, actor_network_dict, critic_network_dict = torch.load(self.args.teach_ac_model_path)
+            self.o_norm.mean = o_mean
+            self.o_norm.std = o_std
+            self.g_norm.mean = g_mean
+            self.g_norm.std = g_std
+            self.actor_network.load_state_dict(actor_network_dict)
+            self.critic_network.load_state_dict(critic_network_dict)
+            #a_loss: 28.156 q_loss: 7.560 rrc: -2114 rrc_pos: -1264 rrc_ori: -2964 z_mean: -0.740 xy: 0.756 ori: 2.067
+        elif self.args.teach_mode == 'actor':
+            print('Loading the actor from the teacher')
+            o_mean, o_std, g_mean, g_std, actor_network_dict, critic_network_dict = torch.load(self.args.teach_ac_model_path)
+            self.o_norm.mean = o_mean
+            self.o_norm.std = o_std
+            self.g_norm.mean = g_mean
+            self.g_norm.std = g_std
+            self.actor_network.load_state_dict(actor_network_dict)
+            #a_loss: 1.438 q_loss: 0.630 rrc: -2107 rrc_pos: -1334 rrc_ori: -2880 z_mean: -0.776 xy: 0.805 ori: 2.004
             
-        self.actor_network = actor_bigger(env_params)
-        self.critic_network = critic_bigger(env_params)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
         # build up the target network
-        self.actor_target_network = actor_bigger(env_params)
-        self.critic_target_network = critic_bigger(env_params)
+        self.actor_target_network = actor(env_params)
+        self.critic_target_network = critic(env_params)
         # load the weights into the target networks
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
         self.critic_target_network.load_state_dict(self.critic_network.state_dict())
@@ -98,47 +117,69 @@ class ddpg_agent_rrc:
                         ag = observation['achieved_goal']
                         g = observation['desired_goal']
                         # start to collect samples
-                        radnum = np.random.uniform(0.0,1.0) # Take the possibility
-                        if epoch < 50:
-                            prt = 0.9
-                        elif epoch >= 50 and epoch <100:
-                            prt = 0.9 - ((epoch-50) * (0.80/50))
-                        elif epoch >= 100 and epoch <200:
-                            prt = 0.1
-                        else:
-                            prt = 0
-                        if radnum < prt:
-                            radnum2 = np.random.uniform(0.0,1.0)
-                            if radnum2 <= 0.05:
-                                for t in range(self.env_params['max_timesteps']):
-                                    with torch.no_grad():
-                                        t_g = copy(g)[:3]
-                                        t_obs = copy(obs)
-                                        input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
-                                        pi = self.teach_actor_network(input_tensor)
-                                        action = pi.detach().cpu().numpy().squeeze()
-                                    # feed the actions into the environment
-                                    observation_new, _, _, info = self.env.step(action)
-                                    obs_new = observation_new['observation']
-                                    ag_new = observation_new['achieved_goal']
-                                    g_new = observation_new['desired_goal']
-                                    # append rollouts
-                                    ep_obs.append(obs.copy())
-                                    ep_ag.append(ag.copy())
-                                    ep_g.append(g.copy())
-                                    ep_actions.append(action.copy())
-                                    # re-assign the observation
-                                    obs = obs_new
-                                    ag = ag_new
-                                    g = g_new
+#################################Teach collect ################################
+                        if self.args.teach_mode == 'teach_collect':
+                            radnum = np.random.uniform(0.0,1.0) # Take the possibility
+                            if epoch < 50:
+                                prt = 0.9
+                            elif epoch >= 50 and epoch <100:
+                                prt = 0.9 - ((epoch-50) * (0.80/50))
+                            elif epoch >= 100 and epoch <200:
+                                prt = 0.1
                             else:
+                                prt = 0
+                            if radnum < prt:
+                                radnum2 = np.random.uniform(0.0,1.0)
+                                if radnum2 <= 0.05:
+                                    for t in range(self.env_params['max_timesteps']):
+                                        with torch.no_grad():
+                                            t_g = copy(g)
+                                            t_obs = copy(obs)
+                                            input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                            pi = self.teach_actor_network(input_tensor)
+                                            action = pi.detach().cpu().numpy().squeeze()
+                                        # feed the actions into the environment
+                                        observation_new, _, _, info = self.env.step(action)
+                                        obs_new = observation_new['observation']
+                                        ag_new = observation_new['achieved_goal']
+                                        g_new = observation_new['desired_goal']
+                                        # append rollouts
+                                        ep_obs.append(obs.copy())
+                                        ep_ag.append(ag.copy())
+                                        ep_g.append(g.copy())
+                                        ep_actions.append(action.copy())
+                                        # re-assign the observation
+                                        obs = obs_new
+                                        ag = ag_new
+                                        g = g_new
+                                else:
+                                    for t in range(self.env_params['max_timesteps']):
+                                        with torch.no_grad():
+                                            t_g = copy(g)
+                                            t_obs = copy(obs)
+                                            input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                            pi = self.teach_actor_network(input_tensor)
+                                            action = self._select_actions(pi)
+                                        # feed the actions into the environment
+                                        observation_new, _, _, info = self.env.step(action)
+                                        obs_new = observation_new['observation']
+                                        ag_new = observation_new['achieved_goal']
+                                        g_new = observation_new['desired_goal']
+                                        # append rollouts
+                                        ep_obs.append(obs.copy())
+                                        ep_ag.append(ag.copy())
+                                        ep_g.append(g.copy())
+                                        ep_actions.append(action.copy())
+                                        # re-assign the observation
+                                        obs = obs_new
+                                        ag = ag_new
+                                        g = g_new
+                            elif radnum >= prt:
                                 for t in range(self.env_params['max_timesteps']):
                                     with torch.no_grad():
-                                        t_g = copy(g)[:3]
-                                        t_obs = copy(obs)
-                                        input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
-                                        pi = self.teach_actor_network(input_tensor)
-                                        action = self._select_actions2(pi)
+                                        input_tensor = self._preproc_inputs(obs, g)
+                                        pi = self.actor_network(input_tensor)
+                                        action = self._select_actions(pi)
                                     # feed the actions into the environment
                                     observation_new, _, _, info = self.env.step(action)
                                     obs_new = observation_new['observation']
@@ -153,7 +194,8 @@ class ddpg_agent_rrc:
                                     obs = obs_new
                                     ag = ag_new
                                     g = g_new
-                        elif radnum >= prt:
+#################################else################################
+                        else:
                             for t in range(self.env_params['max_timesteps']):
                                 with torch.no_grad():
                                     input_tensor = self._preproc_inputs(obs, g)
@@ -248,18 +290,6 @@ class ddpg_agent_rrc:
         # choose if use the random actions
         action += np.random.binomial(1, 0.2, 1)[0] * (random_actions - action)
         return action
-    
-    def _select_actions2(self, pi):
-        action = pi.cpu().numpy().squeeze()
-        # add the gaussian
-        action += 0.3 * self.env_params['action_max'] * np.random.randn(*action.shape)
-        action = np.clip(action, -self.env_params['action_max'], self.env_params['action_max'])
-        # random actions...
-        random_actions = np.random.uniform(low=-self.env_params['action_max'], high=self.env_params['action_max'], \
-                                            size=self.env_params['action'])
-        # choose if use the random actions
-        action += np.random.binomial(1, 0.4, 1)[0] * (random_actions - action)
-        return action
 
     # update the normalizer
     def _update_normalizer(self, episode_batch):
@@ -303,7 +333,7 @@ class ddpg_agent_rrc:
     def _update_network(self):
         # sample the episodes
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
-        if self.args.reward_type == "poz": 
+        if self.args.reward_type == "po_z" or self.args.reward_type == "p_o_z": 
             transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
@@ -337,8 +367,10 @@ class ddpg_agent_rrc:
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
-            if self.args.reward_type == 'ct':
+            if self.args.reward_type == "po_z":
                 clip_return += 50 # TODO: calculate proper value!!!
+            elif self.args.reward_type == "p_o_z":
+                clip_return += 100 # TODO: calculate proper value!!!
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
         real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)

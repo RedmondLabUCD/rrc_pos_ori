@@ -55,9 +55,8 @@ def get_args():
     #Orientation:
     parser.add_argument('--orientation-threshold', type=int, default=30, help='orientation-threshold')
     parser.add_argument('--reward-type', type=str, default='p_o', help='reward-type')
-    parser.add_argument('--teach-collect', type=int, default=0, help='teach-learning')
-    parser.add_argument('--teach-ac-model-path', type=str, default='acmodel_teach.pt', help='teach-learning')
-    # parser.add_argument('--teach-epoch', type=int, default=0, help='teach-learning')
+    parser.add_argument('--teach-ac-model-path', type=str, default='acmodel_teacher.pt', help='teach-ac-model-path')
+    parser.add_argument('--teach-mode', type=str, default='actor', help='teach-learning')
 
     
     args = parser.parse_args()

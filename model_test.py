@@ -47,7 +47,7 @@ def main():
     step_size=50
     difficulty=4
     obs_type='default'
-    model_path = 'acmodel140.pt'
+    model_path = 'acmodel95.pt'
     #############
     
     # Make sim environment
