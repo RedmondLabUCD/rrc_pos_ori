@@ -35,7 +35,7 @@ def main():
         print('domain-randomization: ',args.domain_randomization)
         print('increaser_fps:        ',args.increase_fps)
         print('reward-type:          ',args.reward_type)
-        print('teach-epoch:          ',args.teach_epoch)
+        # print('teach-epoch:          ',args.teach_epoch)
         print('teach-collecting:     ',args.teach_collect)
         print('We are currently training in:')
         print(os.path.abspath(os.path.curdir))

@@ -99,35 +99,60 @@ class ddpg_agent_rrc:
                         g = observation['desired_goal']
                         # start to collect samples
                         radnum = np.random.uniform(0.0,1.0) # Take the possibility
-                        if epoch < 10:
+                        if epoch < 50:
                             prt = 0.9
-                        elif epoch >= 10 and epoch <40:
-                            prt = 0.9 - ((epoch-10) * (0.8/30))
-                        elif epoch >= 40:
+                        elif epoch >= 50 and epoch <100:
+                            prt = 0.9 - ((epoch-50) * (0.80/50))
+                        elif epoch >= 100 and epoch <200:
                             prt = 0.1
+                        else:
+                            prt = 0
                         if radnum < prt:
-                            for t in range(self.env_params['max_timesteps']):
-                                with torch.no_grad():
-                                    t_g = copy(g)[:3]
-                                    t_obs = copy(obs)
-                                    input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
-                                    pi = self.teach_actor_network(input_tensor)
-                                    # action = self._select_actions(pi)
-                                    action = pi.detach().cpu().numpy().squeeze()
-                                # feed the actions into the environment
-                                observation_new, _, _, info = self.env.step(action)
-                                obs_new = observation_new['observation']
-                                ag_new = observation_new['achieved_goal']
-                                g_new = observation_new['desired_goal']
-                                # append rollouts
-                                ep_obs.append(obs.copy())
-                                ep_ag.append(ag.copy())
-                                ep_g.append(g.copy())
-                                ep_actions.append(action.copy())
-                                # re-assign the observation
-                                obs = obs_new
-                                ag = ag_new
-                                g = g_new
+                            radnum2 = np.random.uniform(0.0,1.0)
+                            if radnum2 <= 0.05:
+                                for t in range(self.env_params['max_timesteps']):
+                                    with torch.no_grad():
+                                        t_g = copy(g)[:3]
+                                        t_obs = copy(obs)
+                                        input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                        pi = self.teach_actor_network(input_tensor)
+                                        action = pi.detach().cpu().numpy().squeeze()
+                                    # feed the actions into the environment
+                                    observation_new, _, _, info = self.env.step(action)
+                                    obs_new = observation_new['observation']
+                                    ag_new = observation_new['achieved_goal']
+                                    g_new = observation_new['desired_goal']
+                                    # append rollouts
+                                    ep_obs.append(obs.copy())
+                                    ep_ag.append(ag.copy())
+                                    ep_g.append(g.copy())
+                                    ep_actions.append(action.copy())
+                                    # re-assign the observation
+                                    obs = obs_new
+                                    ag = ag_new
+                                    g = g_new
+                            else:
+                                for t in range(self.env_params['max_timesteps']):
+                                    with torch.no_grad():
+                                        t_g = copy(g)[:3]
+                                        t_obs = copy(obs)
+                                        input_tensor = process_inputs(t_obs, t_g, self.t_o_mean, self.t_o_std, self.t_g_mean, self.t_g_std)
+                                        pi = self.teach_actor_network(input_tensor)
+                                        action = self._select_actions2(pi)
+                                    # feed the actions into the environment
+                                    observation_new, _, _, info = self.env.step(action)
+                                    obs_new = observation_new['observation']
+                                    ag_new = observation_new['achieved_goal']
+                                    g_new = observation_new['desired_goal']
+                                    # append rollouts
+                                    ep_obs.append(obs.copy())
+                                    ep_ag.append(ag.copy())
+                                    ep_g.append(g.copy())
+                                    ep_actions.append(action.copy())
+                                    # re-assign the observation
+                                    obs = obs_new
+                                    ag = ag_new
+                                    g = g_new
                         elif radnum >= prt:
                             for t in range(self.env_params['max_timesteps']):
                                 with torch.no_grad():
@@ -211,22 +236,29 @@ class ddpg_agent_rrc:
             inputs = inputs.cuda()
         return inputs
     
-    def _teach_obs_process(self, obs):
-        print(obs['desired_goal'])
-        obs["desired_goal"] = obs['desired_goal'][:3]
-        obs["achieved_goal"] = obs['achieved_goal'][:3]
-    
     # this function will choose action for the agent and do the exploration
     def _select_actions(self, pi):
         action = pi.cpu().numpy().squeeze()
         # add the gaussian
-        action += self.args.noise_eps * self.env_params['action_max'] * np.random.randn(*action.shape)
+        action += 0.1 * self.env_params['action_max'] * np.random.randn(*action.shape)
         action = np.clip(action, -self.env_params['action_max'], self.env_params['action_max'])
         # random actions...
         random_actions = np.random.uniform(low=-self.env_params['action_max'], high=self.env_params['action_max'], \
                                             size=self.env_params['action'])
         # choose if use the random actions
-        action += np.random.binomial(1, self.args.random_eps, 1)[0] * (random_actions - action)
+        action += np.random.binomial(1, 0.2, 1)[0] * (random_actions - action)
+        return action
+    
+    def _select_actions2(self, pi):
+        action = pi.cpu().numpy().squeeze()
+        # add the gaussian
+        action += 0.3 * self.env_params['action_max'] * np.random.randn(*action.shape)
+        action = np.clip(action, -self.env_params['action_max'], self.env_params['action_max'])
+        # random actions...
+        random_actions = np.random.uniform(low=-self.env_params['action_max'], high=self.env_params['action_max'], \
+                                            size=self.env_params['action'])
+        # choose if use the random actions
+        action += np.random.binomial(1, 0.4, 1)[0] * (random_actions - action)
         return action
 
     # update the normalizer
@@ -271,6 +303,8 @@ class ddpg_agent_rrc:
     def _update_network(self):
         # sample the episodes
         transitions = self.buffer.sample(self.args.batch_size,self.epoch)
+        if self.args.reward_type == "poz": 
+            transitions['r'] += self.get_z_reward(transitions['obs'], transitions['g'])
         # pre-process the observation and goal
         o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)

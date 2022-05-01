@@ -37,8 +37,8 @@ class her_sampler:
 
         transitions['g'][her_indexes] = future_ag
         
-        if self.args.reward_type == "ori_z": 
-            transitions['g'][:,:2] = temp_g[:,:2]
+        if self.args.reward_type == "poz": 
+            transitions['g'][:,2] = temp_g[:,2]
 
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], self.args.reward_type,epoch), 1)

@@ -127,6 +127,6 @@ print(a[3:])
 #%%
 print(0.9000000 == 0.9)
 #%%
-epoch = 40
-prt = 0.9 - ((epoch-10) * (0.8/30))
+epoch = 100
+prt = 0.9 - ((epoch-50) * (0.80/50))
 print(prt)
