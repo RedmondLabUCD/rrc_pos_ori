@@ -282,13 +282,13 @@ class ddpg_agent_rrc:
     def _select_actions(self, pi):
         action = pi.cpu().numpy().squeeze()
         # add the gaussian
-        action += 0.1 * self.env_params['action_max'] * np.random.randn(*action.shape)
+        action += self.args.noise_eps * self.env_params['action_max'] * np.random.randn(*action.shape)
         action = np.clip(action, -self.env_params['action_max'], self.env_params['action_max'])
         # random actions...
         random_actions = np.random.uniform(low=-self.env_params['action_max'], high=self.env_params['action_max'], \
                                             size=self.env_params['action'])
         # choose if use the random actions
-        action += np.random.binomial(1, 0.2, 1)[0] * (random_actions - action)
+        action += np.random.binomial(1, self.args.random_eps, 1)[0] * (random_actions - action)
         return action
 
     # update the normalizer
